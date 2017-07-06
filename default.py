@@ -8,6 +8,7 @@ from skygo import SkyGo
 import navigation as nav
 import watchlist
 
+skygo = SkyGo()
 addon_handle = int(sys.argv[1])
 plugin_base_url = sys.argv[0]
 params = dict(urlparse.parse_qsl(sys.argv[2][1:]))
@@ -18,11 +19,17 @@ if 'action' in params:
     print params
 
     if params['action'] == 'playVod':
-        vod.playAsset(params['vod_id'])
+        if 'infolabels' in params:
+            vod.playAsset(params['vod_id'], params['infolabels'])
+        else:
+            vod.playAsset(params['vod_id'])
     elif params['action'] == 'playClip':
         clips.playClip(params['id'])
     elif params['action'] == 'playLive':
-        liveTv.playLiveTv(params['manifest_url'], params['package_code'])
+        if 'infolabels' in params:
+            liveTv.playLiveTv(params['manifest_url'], params['package_code'], params['infolabels'])
+        else:    
+            liveTv.playLiveTv(params['manifest_url'], params['package_code'])
 
     elif params['action'] == 'listLiveTvChannelDirs':
         nav.listLiveTvChannelDirs()
@@ -61,6 +68,9 @@ if 'action' in params:
 
     elif params['action'] == 'parentalSettings':
         nav.showParentalSettings()
+    
+    elif params['action'] == 'login':
+        skygo.setLogin()
 
 else:
     nav.rootDir()
