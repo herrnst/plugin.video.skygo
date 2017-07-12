@@ -8,7 +8,6 @@ from skygo import SkyGo
 import navigation as nav
 import watchlist
 
-skygo = SkyGo()
 addon_handle = int(sys.argv[1])
 plugin_base_url = sys.argv[0]
 params = dict(urlparse.parse_qsl(sys.argv[2][1:]))
@@ -68,9 +67,6 @@ if 'action' in params:
 
     elif params['action'] == 'parentalSettings':
         nav.showParentalSettings()
-    
-    elif params['action'] == 'login':
-        skygo.setLogin()
 
 else:
     nav.rootDir()
