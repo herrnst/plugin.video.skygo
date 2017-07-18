@@ -1,3 +1,7 @@
+1.10.3
+- Fix für Jugendschutzeinstellung
+1.10.2
+- Fix für Log-Warnhinweise
 1.10.1
 - Bugfix für Suche, wenn zusätzliche Medieninformation aktiviert sind
 1.10.0
