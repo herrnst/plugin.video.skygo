@@ -41,10 +41,10 @@ nav_blacklist = [34, 32, 27, 15]
 nav_force = [35, 36, 37, 161]
 
 #Jugendschutz
-js_showall = xbmcaddon.Addon().getSetting('js_showall')
+js_showall = addon.getSetting('js_showall')
  
 def getNav():
-    feed = urllib2.urlopen('http://www.skygo.sky.de/sg/multiplatform/ipad/json/navigation.xml')
+    feed = urllib2.urlopen('https://www.skygo.sky.de/sg/multiplatform/ipad/json/navigation.xml')
     nav = ET.parse(feed)
     return nav.getroot()
      
@@ -88,21 +88,21 @@ def showParentalSettings():
     fsk_list = ['Deaktiviert', '0', '6', '12', '16', '18']
     dlg = xbmcgui.Dialog()
     code = dlg.input('PIN Code', type=xbmcgui.INPUT_NUMERIC)
-    if skygo.encode(code) == xbmcaddon.Addon().getSetting('password'):
+    if skygo.encode(code) == addon.getSetting('password'):
         idx = dlg.select('Wähle maximale FSK Alterstufe', fsk_list)
         if idx >= 0:
             fsk_code = fsk_list[idx]
             if fsk_code == 'Deaktiviert':
-                xbmcaddon.Addon().setSetting('js_maxrating', '-1')
+                addon.setSetting('js_maxrating', '-1')
             else:
-                xbmcaddon.Addon().setSetting('js_maxrating', fsk_list[idx])
+                addon.setSetting('js_maxrating', fsk_list[idx])
         if idx > 0:
             if dlg.yesno('Jugendschutz', 'Sollen Inhalte mit einer Alterseinstufung über ', 'FSK ' + fsk_list[idx] + ' angezeigt werden?'):
-                xbmcaddon.Addon().setSetting('js_showall', 'true')
+                addon.setSetting('js_showall', 'true')
             else:
-                xbmcaddon.Addon().setSetting('js_showall', 'false')
+                addon.setSetting('js_showall', 'false')
     else:
-        xbmcgui.Dialog().notification('SkyGo - Jugendschutz', 'Fehlerhafte PIN', xbmcgui.NOTIFICATION_ERROR, 2000, True)
+        xbmcgui.Dialog().notification('Sky Go - Jugendschutz', 'Fehlerhafte PIN', xbmcgui.NOTIFICATION_ERROR, 2000, True)
     
 def getHeroImage(data):
     if 'main_picture' in data:
@@ -117,7 +117,7 @@ def getHeroImage(data):
     return ''
 
 def getPoster(data):
-    if 'name' in data and xbmcaddon.Addon().getSetting('enable_customlogos') == 'true':
+    if 'name' in data and addon.getSetting('enable_customlogos') == 'true':
         img = getLocalChannelLogo(data['name'])
         if img:
             return img
@@ -145,7 +145,7 @@ def getChannelLogo(data):
     return logopath
 
 def getLocalChannelLogo(channel_name):   
-    logo_path = xbmcaddon.Addon().getSetting('logoPath')
+    logo_path = addon.getSetting('logoPath')
     if not logo_path == '' and xbmcvfs.exists(logo_path):
         dirs, files = xbmcvfs.listdir(logo_path)
         for f in files:
@@ -254,7 +254,7 @@ def listLiveTvChannels(channeldir_name):
             listAssets(sorted(details.values(), key=lambda k:k['data']['channel']['name']))
 
 def getlistLiveChannelData(channel = ''):
-    url = 'http://www.skygo.sky.de/epgd/sg/ipad/excerpt/'
+    url = 'https://www.skygo.sky.de/epgd/sg/ipad/excerpt/'
     data = requests.get(url).json()
     data = [json for json in data if json['tabName'] != 'welt']
     
@@ -264,7 +264,7 @@ def getlistLiveChannelData(channel = ''):
             for event in tab['eventList']:
                 channel_list.append(event['channel']['name'])
 
-        url = 'http://www.skygo.sky.de/epgd/sg/web/excerpt/'        
+        url = 'https://www.skygo.sky.de/epgd/sg/web/excerpt/'        
         data_web = requests.get(url).json()
         data_web = [json for json in data_web if json['tabName'] != 'welt']
         for tab_web in data_web:
@@ -303,6 +303,7 @@ def listEpisodesFromSeason(series_id, season_id):
                 info, episode = getInfoLabel('Episode', episode)
                 li.setInfo('video', info)
                 li.setLabel(info['title'])
+                li = addStreamInfo(li, episode)
                 li.setArt({'poster': skygo.baseUrl + season['path'], 
                            'fanart': getHeroImage(data),
                            'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail']})
@@ -321,7 +322,7 @@ def listSeasonsFromSeries(series_id):
     url = skygo.baseUrl + '/sg/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
     r = requests.get(url)
     data = r.json()['serieRecap']['serie']
-    xbmcplugin.setContent(addon_handle, 'seasons')
+    xbmcplugin.setContent(addon_handle, 'tvshows')
     for season in data['seasons']['season']:
         url = common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
         label = '%s - Staffel %02d' % (data['title'], season['nr'])
@@ -330,6 +331,7 @@ def listSeasonsFromSeries(series_id):
         li.setArt({'poster': skygo.baseUrl + season['path'], 
                    'fanart': getHeroImage(data)})
         li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
+        li.addContextMenuItems(getWatchlistContextItem({'type': 'Episode', 'data': season}, False), replaceItems=False)
         xbmcplugin.addDirectoryItem(handle=addon_handle, url=url,
                                         listitem=li, isFolder=True)
 
@@ -350,6 +352,16 @@ def getAssets(data, key='asset_type'):
             asset_list.append({'type': asset[key], 'label': '', 'url': url, 'data': asset})
         elif asset[key].lower() == 'series':
             url = common.build_url({'action': 'listSeries', 'id': asset['id']})
+            asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
+        elif asset[key].lower() == 'season':
+            url = skygo.baseUrl + '/sg/multiplatform/web/json/details/series/' + str(asset['serie_id']) + '_global.json'
+            r = requests.get(url)
+            serie = r.json()['serieRecap']['serie']
+            asset['synopsis'] = serie['synopsis']
+            for season in serie['seasons']['season']:
+                if season['id'] == asset['id']:
+                    asset['episodes'] = season['episodes']
+            url = common.build_url({'action': 'listSeason', 'id': asset['id'], 'series_id': asset['serie_id']})
             asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
 
     return asset_list
@@ -484,7 +496,7 @@ def getInfoLabel(asset_type, item_data):
         item_data['event']['subtitle'] = htmlparser.unescape(item_data['event'].get('subtitle', ''))
         info['title'] = item_data['event'].get('subtitle', '')
         info['plot'] = data.get('synopsis', '').replace('\n', '').strip() if data.get('synopsis', '') != '' else item_data['event'].get('subtitle', '')
-        if 'assetid' in item_data['event'] and not item_data['channel']['msMediaUrl'].startswith('http://'):
+        if 'assetid' in item_data['event'] and not item_data['channel']['msMediaUrl'].startswith('http'):
             if 'mediainfo' in item_data:
                 info['title'] = data.get('title', '')
                 info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
@@ -498,7 +510,7 @@ def getInfoLabel(asset_type, item_data):
                 asset_type = 'Episode'
                 info['plot'] = 'Folge: ' + data.get('title', '') + '\n\n' + data.get('synopsis', '').replace('\n', '').strip()
                 info['title'] = '%1dx%02d. %s' % (data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
-        if xbmcaddon.Addon().getSetting('channel_name_first') == 'true':
+        if addon.getSetting('channel_name_first') == 'true':
             channel = '[COLOR blue]' + item_data['channel']['name'] + ' | [/COLOR]'
             info['title'] = channel + info['title']
         else:
@@ -517,14 +529,14 @@ def getInfoLabel(asset_type, item_data):
             info['title'] = '%1dx%02d. %s' % (data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
     if asset_type == 'Film':
         info['mediatype'] = 'movie'
-        if xbmcaddon.Addon().getSetting('lookup_tmdb_data') == 'true' and not data.get('title', '') == '': 
+        if addon.getSetting('lookup_tmdb_data') == 'true' and not data.get('title', '') == '': 
             title = data.get('title', '').encode("utf-8") 
             xbmc.log('Searching Rating and better Poster for %s at tmdb.com' % title.upper())
             if not data.get('year_of_production', '') == '':
                 TMDb_Data = getTMDBDataFromCache(title, info['year'])
             else:
                 TMDb_Data = getTMDBDataFromCache(title)
-            # xbmc.log('Debug-Info: TMDb_Data: %s' % TMDb_Data)
+
             if TMDb_Data['rating'] is not None:
                 info['rating'] = str(TMDb_Data['rating'])
                 info['plot'] = 'User-Rating: '+ info['rating'] + ' / 10 (from TMDb) \n\n' + info['plot']
@@ -541,26 +553,33 @@ def getInfoLabel(asset_type, item_data):
         info['tvshowtitle'] = data.get('serie_title', '')
         if info['title'] == '':
             info['title'] = '%s - S%02dE%02d' % (data.get('serie_title', ''), data.get('season_nr', 0), data.get('episode_nr', 0))
-    # xbmc.log( "Debug_Info Current info Element: %s" % (info) ) 
+
     return info, item_data
 
 def getWatchlistContextItem(item, delete=False):
     label = 'Zur Merkliste hinzufügen'
     action = 'watchlistAdd'
     asset_type = item['type']
+    ids = []
     if delete:
         label = 'Von Merkliste entfernen'
         action = 'watchlistDel'
     if asset_type == 'searchresult':
         asset_type = item['data']['contentType']
-    url = common.build_url({'action': action, 'id': item['data']['id'], 'assetType': asset_type})
+    if delete == False and asset_type == 'Episode' and len(item.get('data').get('episodes', {})) > 0:
+        for episode in item.get('data').get('episodes').get('episode'):
+            ids.append(str(episode.get('id')))
+    else:
+        ids.append(str(item['data']['id']))
+            
+    url = common.build_url({'action': action, 'id': ','.join(ids), 'assetType': asset_type})
     return [(label, 'RunPlugin(' + url + ')')]
 
 def listAssets(asset_list, isWatchlist=False):
     for item in asset_list:
         isPlayable = False
         li = xbmcgui.ListItem(label=item['label'], iconImage=icon_file)
-        if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult']:
+        if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
             isPlayable = True
             #Check Altersfreigabe / Jugendschutzeinstellungen
             parental_rating = 0
@@ -573,15 +592,17 @@ def listAssets(asset_list, isWatchlist=False):
             li.setInfo('video', info)
             item['url'] = item['url'] + ('&' if item['url'].find('?') > -1 else '?') + urllib.urlencode({'infolabels': info, 'parental_rating': parental_rating})
             li.setLabel(info['title'])         
-            li.setArt({'poster': getPoster(item['data']), 'fanart': getHeroImage(item['data'])})           
+            li.setArt({'poster': getPoster(item['data']), 'fanart': getHeroImage(item['data'])})
+            if item['type'] not in ['Series', 'Season']:
+                li = addStreamInfo(li, item['data'])
         if item['type'] in ['Film']:
             xbmcplugin.setContent(addon_handle, 'movies')
-            if xbmcaddon.Addon().getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
+            if addon.getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
                 poster_path = item['data']['TMDb_poster_path'] 
             else:
                 poster_path = getPoster(item['data']) 
             li.setArt({'poster': poster_path})
-        elif item['type'] in ['Series']:
+        elif item['type'] in ['Series', 'Season']:
             xbmcplugin.setContent(addon_handle, 'tvshows')
             isPlayable = False
         elif item['type'] in ['Episode']:
@@ -591,16 +612,16 @@ def listAssets(asset_list, isWatchlist=False):
             li.setArt({'thumb': getHeroImage(item['data'])})
         elif item['type'] == 'searchresult':          
             xbmcplugin.setContent(addon_handle, 'movies')
-            if xbmcaddon.Addon().getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
+            if addon.getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
                 poster_path = item['data']['TMDb_poster_path'] 
             else:
                 poster_path = getPoster(item['data'])
             li.setArt({'poster': poster_path})
-        elif item['type'] == ('live'):
+        elif item['type'] == 'live':
             xbmcplugin.setContent(addon_handle, 'files')
             if 'TMDb_poster_path' in item['data']:
                 poster = item['data']['TMDb_poster_path']
-            elif 'mediainfo' in item['data']:
+            elif 'mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport'):
                 poster = getPoster(item['data']['mediainfo'])
             else:
                 poster = getPoster(item['data']['channel'])
@@ -611,6 +632,8 @@ def listAssets(asset_list, isWatchlist=False):
         #add contextmenu item for watchlist to playable content - not for live and clip content
         if isPlayable and not item['type'] in ['live', 'Clip']:
             li.addContextMenuItems(getWatchlistContextItem(item, isWatchlist), replaceItems=False)
+        elif item['type'] == 'Season':
+            li.addContextMenuItems(getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False), replaceItems=False)
         li.setProperty('IsPlayable', str(isPlayable).lower())
         xbmcplugin.addDirectoryItem(handle=addon_handle, url=item['url'],
                                     listitem=li, isFolder=(not isPlayable))
@@ -696,7 +719,7 @@ def getTMDBData(title, year=None, attempt = 1, content='movie'):
     
     try:
         #Define the moviedb Link zu download the json
-        host = 'http://api.themoviedb.org/3/search/%s?api_key=%s&language=%s&query=%s%s' % (content, tmdb_api, Language, movie, str_year)
+        host = 'https://api.themoviedb.org/3/search/%s?api_key=%s&language=%s&query=%s%s' % (content, tmdb_api, Language, movie, str_year)
         #Download and load the corresponding json
         data = json.load(urllib2.urlopen(host))
          
@@ -725,3 +748,19 @@ def getTMDBData(title, year=None, attempt = 1, content='movie'):
                 return getTMDBData(title, year, attempt)
         return {'tmdb_id': tmdb_id, 'title': title, 'rating': rating , 'poster_path': poster_path}
     return {'tmdb_id': tmdb_id, 'title': title, 'rating': rating , 'poster_path': poster_path}
+
+def addStreamInfo(listitem, data):
+    if 'channel' in data and data.get('channel').get('name').startswith('Sky Sport'):
+        listitem.addStreamInfo('video', {'codec': 'h264', 'width': 1280, 'height': 720})
+    else:
+        if 'mediainfo' in data:
+            data = data.get('mediainfo')
+        if 'hd' in data:
+            if data.get('hd') == 'yes':
+                listitem.addStreamInfo('video', {'codec': 'h264', 'width': 1280, 'height': 720})
+            else:
+                listitem.addStreamInfo('video', {'codec': 'h264', 'width': 960, 'height': 540})        
+
+    listitem.addStreamInfo('audio', {'codec': 'aac', 'channels': 2})
+
+    return listitem
