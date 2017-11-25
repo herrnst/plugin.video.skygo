@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys
 import urlparse
 import resources.lib.vod as vod
@@ -71,6 +74,9 @@ if 'action' in params:
     
     elif params['action'] == 'login':
         skygo.setLogin()
+
+    elif params['action'] == 'clearCache':
+        nav.clearCache()
 
 else:
     nav.rootDir()
