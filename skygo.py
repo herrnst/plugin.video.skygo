@@ -3,7 +3,6 @@
 
 import base64
 import struct
-
 import requests
 import json
 import re
@@ -15,11 +14,9 @@ import xml.etree.ElementTree as ET
 from pyDes import *
 from platform import node
 import uuid
-
 import xbmc
 import xbmcgui
 import xbmcaddon, xbmcplugin
-
 from inputstreamhelper import Helper
 
 LOGIN_STATUS = { 'SUCCESS': 'T_100',
@@ -305,7 +302,7 @@ class SkyGo:
 
         return True
 
-    def play(self, manifest_url, package_code, parental_rating=0, info_tag=None, apix_id=None):
+    def play(self, manifest_url, package_code, parental_rating=0, info_tag=None, art_tag=None, apix_id=None):
         # Inputstream and DRM
         helper = Helper(protocol='ism', drm='widevine')
         if not helper.check_inputstream():
@@ -326,13 +323,17 @@ class SkyGo:
                 li = xbmcgui.ListItem(path=manifest_url)
                 if info_tag:
                     li.setInfo('video', info_tag)
+                if art_tag:
+                    li.setArt(art_tag)
 
-                li.setProperty('inputstream.adaptive.license_type', self.license_type)
-                li.setProperty('inputstream.adaptive.manifest_type', 'ism')
-                if init_data:
-                    li.setProperty('inputstream.adaptive.license_key', self.license_url)
-                    li.setProperty('inputstream.adaptive.license_data', init_data)
                 li.setProperty('inputstreamaddon', 'inputstream.adaptive')
+                li.setProperty('inputstream.adaptive.license_type', self.license_type)
+                li.setProperty('inputstream.adaptive.license_key', self.license_url)
+                li.setProperty('inputstream.adaptive.manifest_type', 'ism')
+                li.setProperty('inputstream.adaptive.license_flags', 'persistent_storage')
+                if init_data:
+                    li.setProperty('inputstream.adaptive.license_data', init_data)
+
                 # Start Playing
                 xbmcplugin.setResolvedUrl(self.addon_handle, True, listitem=li)
             else:
@@ -340,11 +341,3 @@ class SkyGo:
         else:
             xbmcgui.Dialog().notification('Sky Go Fehler', 'Fehler beim Login.', xbmcgui.NOTIFICATION_ERROR, 2000, True)
             print 'Fehler beim Einloggen'
-
-
-if len(password) == 4:
-    skygo = SkyGo()
-    password = skygo.encode(password)
-    addon.setSetting('password', password)
-    if skygo.login(username, password, forceLogin=True, askKillSession=False):
-        addon.setSetting('login_acc', username)

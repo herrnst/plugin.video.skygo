@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.11.0" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.12.1" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.1.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -7,7 +7,7 @@
 		<import addon="script.module.cryptopy" version="1.2.6"/>
 		<import addon="script.common.plugin.cache" version="2.5.8"/>
 		<import addon="script.module.pydes" version="2.0.1"/>
-		<import addon="inputstream.adaptive" version="1.0.8"/>
+		<import addon="inputstream.adaptive" version="2.2.27"/>
 		<import addon="script.module.inputstreamhelper" version="0.2.2"/>
 	</requires>
 	<extension point="xbmc.python.pluginsource" library="default.py">
@@ -35,7 +35,9 @@ This product uses the TMDb API (themoviedb.org) but is not endorsed or certified
 		<email></email>
 		<source></source>
 		<news>
-			- Vorbereitende Änderung für python3
+- "inputstream.adaptive" V2.2.27 ist erforderlich
+- Property "inputstream.adaptive.license_flags=persistent_storage" gesetzt
 		</news>
+		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>
