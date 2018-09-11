@@ -46,4 +46,3 @@ def playClip(clip_id):
         manifest = buildClipUrl(clip_info['videoUrlMSSProtected'], token)
 
         skygo.play(manifest, clip_info['package_code'])
-
