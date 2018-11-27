@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.12.2" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.12.3" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.1.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -34,7 +34,10 @@ This product uses the TMDb API (themoviedb.org) but is not endorsed or certified
 		<website></website>
 		<email></email>
 		<source></source>
+		<broken>Aufgrund der Abschaltung der Browser-Variante seitens SKY, ist das Add-on vorerst nicht mehr funktionsfähig.</broken>
 		<news>
+V1.12.3
+- Aufgrund der Abschaltung der Browser-Variante seitens SKY, ist das Add-on vorerst nicht mehr funktionsfähig.
 V1.12.2
 - Widgets: Anzeige von Arts
 - LiveTV: Option, um den Listeneintrag 'Aktualisieren' auszublenden
