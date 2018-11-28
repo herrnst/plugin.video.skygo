@@ -1,11 +1,12 @@
 1.12.2
-- Widgets: Anzeige von Arts
-- LiveTV: Option, um den Listeneintrag 'Aktualisieren' auszublenden
+- Fix für das Abrufen der LiveTV-Daten
 1.12.1
 - "inputstream.adaptive" V2.2.27 ist erforderlich
 - Property "inputstream.adaptive.license_flags=persistent_storage" gesetzt
 1.12.0
 - Aktivieren des Python-Cachings
+- Widgets: Anzeige von Arts
+- LiveTV: Option, um den Listeneintrag 'Aktualisieren' auszublenden
 1.11.0
 - Vorbereitende Änderung für Python-Caching
 1.10.10.2
