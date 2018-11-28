@@ -1,3 +1,5 @@
+1.12.4
+- Fix für das Abrufen der LiveTV-Daten
 1.12.2
 - Fix für das Abrufen der LiveTV-Daten
 1.12.1
