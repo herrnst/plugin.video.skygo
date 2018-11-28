@@ -37,8 +37,6 @@ This product uses the TMDb API (themoviedb.org) but is not endorsed or certified
 		<news>
 V1.12.4
 - Fix Änderungen SkyGo
-- "inputstream.adaptive" V2.2.27 ist erforderlich
-- Property "inputstream.adaptive.license_flags=persistent_storage" gesetzt
 		</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
