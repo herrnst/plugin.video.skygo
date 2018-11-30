@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import xbmc, xbmcgui, xbmcplugin, xbmcaddon, xbmcvfs
+import xbmc, xbmcgui, xbmcplugin, xbmcaddon, xbmcvfs
+
 import urllib2
 import json
 import datetime
@@ -29,7 +30,8 @@ TMDBCache = StorageServer.StorageServer(addon.getAddonInfo('name') + '.TMDBdata'
 extMediaInfos = addon.getSetting('enable_extended_mediainfos')
 icon_file = xbmc.translatePath(addon.getAddonInfo('path') + '/icon.png').decode('utf-8')
 skygo = None
-htmlparser = HTMLParser()
+htmlparser = HTMLParser()
+
 
 # Blacklist: diese nav_ids nicht anzeigen
 # 15 = Snap
