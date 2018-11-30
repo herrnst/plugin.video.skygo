@@ -65,6 +65,7 @@ class SkyGo:
     """Sky Go Class"""
 
     baseUrl = "https://www.skygo.sky.de"
+    baseUrlLive = 'https://skyticket.sky.de'
     entitlements = []
 
     def __init__(self, addon_handle):
@@ -74,10 +75,11 @@ class SkyGo:
         self.license_type = license_type
         self.android_deviceId = android_deviceid
         self.addon_handle = addon_handle
+        self.user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36'
 
         # Create session with old cookies
         self.session = requests.session()
-        self.session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36'})
+        self.session.headers.update({'User-Agent': self.user_agent})
 
         if os.path.isfile(cookiePath):
             with open(cookiePath) as f:

@@ -47,7 +47,7 @@ js_showall = addon.getSetting('js_showall')
 
 def getNav():
     opener = urllib2.build_opener()
-    opener.addheaders = [('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36')]
+    opener.addheaders = [('User-Agent', skygo.user_agent)]
     feed = opener.open('https://www.skygo.sky.de/sg/multiplatform/ipad/json/navigation.xml')
     nav = ET.parse(feed)
     return nav.getroot()
@@ -116,42 +116,48 @@ def getHeroImage(data):
     if 'main_picture' in data:
         for pic in data['main_picture']['picture']:
             if pic['type'] == 'hero_img':
-                return skygo.baseUrl + pic['path'] + '/' + pic['file']
+                return skygo.baseUrl + pic['path'] + '/' + pic['file'] + '|User-Agent=' + skygo.user_agent
     if 'item_image' in data:
-        return skygo.baseUrl + data['item_image']
+        return skygo.baseUrl + data['item_image'] + '|User-Agent=' + skygo.user_agent
     if 'picture' in data:
-        return skygo.baseUrl + data['picture']
+        return skygo.baseUrl + data['picture'] + '|User-Agent=' + skygo.user_agent
 
     return ''
 
 
-def getPoster(data):
+def getPoster(data, type=None):
     if 'name' in data and addon.getSetting('enable_customlogos') == 'true':
         img = getLocalChannelLogo(data['name'])
         if img:
             return img
+    baseUrl = skygo.baseUrl
+    if type and type == 'live':
+        skygo.baseUrlLive
     if data.get('dvd_cover', '') != '':
-        return skygo.baseUrl + data['dvd_cover']['path'] + '/' + data['dvd_cover']['file']
+        return baseUrl + data['dvd_cover']['path'] + '/' + data['dvd_cover']['file'] + '|User-Agent=' + skygo.user_agent
     if data.get('item_preview_image', '') != '':
-        return skygo.baseUrl + data['item_preview_image']
+        return baseUrl + data['item_preview_image'] + '|User-Agent=' + skygo.user_agent
     if data.get('picture', '') != '':
-        return skygo.baseUrl + data['picture']
+        return baseUrl + data['picture'] + '|User-Agent=' + skygo.user_agent
     if data.get('logo', '') != '':
-        return skygo.baseUrl + data['logo']
+        return baseUrl + data['logo'] + '|User-Agent=' + skygo.user_agent
 
     return ''
 
 
-def getChannelLogo(data):
+def getChannelLogo(data, type=None):
     logopath = ''
     if 'channelLogo' in data:
+        baseUrl = skygo.baseUrl
+        if type and type == 'live':
+            baseUrl = skygo.baseUrlLive
         basepath = data['channelLogo']['basepath'] + '/'
         size = 0
         for logo in data['channelLogo']['logos']:
             logosize = logo['size'][:logo['size'].find('x')]
             if int(logosize) > size:
                 size = int(logosize)
-                logopath = skygo.baseUrl + basepath + logo['imageFile']
+                logopath = baseUrl + basepath + logo['imageFile'] + '|User-Agent=' + skygo.user_agent
     return logopath
 
 
@@ -371,9 +377,9 @@ def listEpisodesFromSeason(series_id, season_id):
                 li.setInfo('video', info)
                 li.setLabel(info['title'])
                 li = addStreamInfo(li, episode)
-                li.setArt({'poster': skygo.baseUrl + season['path'],
+                li.setArt({'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
                            'fanart': getHeroImage(data),
-                           'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail']})
+                           'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + skygo.user_agent})
                 url = common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating})
                 xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=False)
 
@@ -396,7 +402,7 @@ def listSeasonsFromSeries(series_id):
         label = '%s - Staffel %02d' % (data['title'], season['nr'])
         li = xbmcgui.ListItem(label=label)
         li.setProperty('IsPlayable', 'false')
-        li.setArt({'poster': skygo.baseUrl + season['path'],
+        li.setArt({'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
                    'fanart': getHeroImage(data),
                    'thumb': icon_file})
         li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
@@ -886,17 +892,17 @@ def getArt(item):
             poster_path = getPoster(item['data'])
         art.update({'poster': poster_path})
     elif item['type'] == 'live':
-        fanart = skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else skygo.baseUrl + '/bin/Picture/817/C_1_Picture_7179_content_4.jpg'
-        thumb = skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else getChannelLogo(item['data']['channel'])
+        fanart = skygo.baseUrlLive + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else skygo.baseUrlLive + '/bin/Picture/817/C_1_Picture_7179_content_4.jpg'
+        thumb = skygo.baseUrlLive + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else getChannelLogo(item['data']['channel'], item['type'])
         if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
             if 'TMDb_poster_path' in item['data']:
                 poster = item['data']['TMDb_poster_path']
             else:
-                poster = getPoster(item['data']['mediainfo'])
+                poster = getPoster(item['data']['mediainfo'], item['type'])
             thumb = poster
             xbmcplugin.setContent(skygo.addon_handle, 'movies')
         else:
-            poster = getPoster(item['data']['channel'])
-        art.update({'poster': poster, 'fanart': fanart, 'thumb': thumb})
+            poster = getPoster(item['data']['channel'], item['type'])
+        art.update({'poster':  poster + '|User-Agent=' + skygo.user_agent, 'fanart': fanart + '|User-Agent=' + skygo.user_agent, 'thumb': thumb + '|User-Agent=' + skygo.user_agent})
 
     return art
