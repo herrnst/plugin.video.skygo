@@ -77,12 +77,11 @@ class SkyGo:
 
         # Create session with old cookies
         self.session = requests.session()
-        self.session.headers.setdefault('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36')
+        self.session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36'})
 
         if os.path.isfile(cookiePath):
             with open(cookiePath) as f:
                 cookies = requests.utils.cookiejar_from_dict(pickle.load(f))
-                self.session = requests.session()
                 self.session.cookies = cookies
         return
 
