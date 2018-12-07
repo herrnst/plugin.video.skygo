@@ -1,3 +1,6 @@
+1.13.2
+- Widgets: Fix für die Anzeige von Arts im Video OSD
+- 1. Ebene unter Livesender auf statische Liste geändert 
 1.13.1
 - Fix für Widgets
 - LiveTV: Streams ohne Manifest herausfiltern
