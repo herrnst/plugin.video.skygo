@@ -278,8 +278,8 @@ def getlistLiveChannelData(channel=None):
 def getLiveChannelDetails(eventlist, s_manifest_url=None):
     details = {}
     for event in eventlist:
-        url = ''
-        manifest_url = ''
+        url = None
+        manifest_url = None
 
         if event['channel'].get('msMediaUrl', None) and event['channel']['msMediaUrl'].startswith('http'):
             manifest_url = event['channel']['msMediaUrl']
@@ -320,7 +320,7 @@ def getLiveChannelDetails(eventlist, s_manifest_url=None):
             detail = str(event['event']['cmsid'])
 
         # zeige keine doppelten sender mit gleichem stream - nutze hd falls verfügbar
-        if detail != '':
+        if url and detail != '':
             parental_rating = 0
             fskInfo = re.search('(\d+)', event['event']['fskInfo'])
             if fskInfo:
