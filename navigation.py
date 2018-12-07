@@ -193,10 +193,10 @@ def search():
 
 
 def listLiveTvChannelDirs():
-    data = getlistLiveChannelData()
-    for tab in data:
-        url = common.build_url({'action': 'listLiveTvChannels', 'channeldir_name': tab['tabName']})
-        li = xbmcgui.ListItem(label=tab['tabName'].title(), iconImage=icon_file, thumbnailImage=icon_file)
+    channels = ['bundesliga', 'cinema', 'entertainment', 'sport']
+    for channel in channels:
+        url = common.build_url({'action': 'listLiveTvChannels', 'channeldir_name': channel})
+        li = xbmcgui.ListItem(label=channel.title(), iconImage=icon_file, thumbnailImage=icon_file)
         xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=True)
 
     xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
