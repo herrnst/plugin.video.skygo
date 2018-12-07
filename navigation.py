@@ -368,10 +368,11 @@ def listEpisodesFromSeason(series_id, season_id):
                 li.setInfo('video', info)
                 li.setLabel(info['title'])
                 li = addStreamInfo(li, episode)
-                li.setArt({'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
-                           'fanart': getHeroImage(data),
-                           'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + skygo.user_agent})
-                url = common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating})
+                art = {'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
+                        'fanart': getHeroImage(data),
+                        'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + skygo.user_agent}
+                li.setArt()
+                url = common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
                 xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=False)
 
     xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_EPISODE)
@@ -665,7 +666,7 @@ def listAssets(asset_list, isWatchlist=False):
     cacheToDisc = True
     for item in asset_list:
         isPlayable = False
-        params = {}
+        additional_params = {}
         li = xbmcgui.ListItem(label=item['label'], iconImage=icon_file)
         if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
             isPlayable = True
@@ -678,7 +679,7 @@ def listAssets(asset_list, isWatchlist=False):
                         continue
             info, item['data'] = getInfoLabel(item['type'], item['data'])
             li.setInfo('video', info)
-            params.update({'infolabels': info, 'parental_rating': parental_rating})
+            additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
             li.setLabel(info['title'])
             # if item['type'] not in ['Series', 'Season']:
             #    li = addStreamInfo(li, item['data'])
@@ -705,11 +706,13 @@ def listAssets(asset_list, isWatchlist=False):
             li.addContextMenuItems(getWatchlistContextItem(item, isWatchlist), replaceItems=False)
         elif item['type'] == 'Season':
             li.addContextMenuItems(getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False), replaceItems=False)
+
         li.setProperty('IsPlayable', str(isPlayable).lower())
-        li.setArt(getArt(item))
-        # item['url'] = item['url'] + ('&' if item['url'].find('?') > -1 else '?') + urllib.urlencode({'infolabels': info, 'parental_rating': parental_rating, 'art': art})
-        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=item['url'],
-                                    listitem=li, isFolder=(not isPlayable))
+
+        additional_params.update({'art': getArt(item)})
+        li.setArt(additional_params.get('art'))
+        item['url'] += '%s%s' % ('&' if item['url'].find('?') >= 0 else '?', urllib.urlencode(additional_params))
+        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=item['url'], listitem=li, isFolder=(not isPlayable))
 
     xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
