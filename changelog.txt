@@ -1,3 +1,8 @@
+1.13.1
+- Fix für Widgets
+- LiveTV: Streams ohne Manifest herausfiltern
+1.13.0
+- Fix für Änderungen seitens SkyGo
 1.12.4
 - Fix für das Abrufen der LiveTV-Daten
 1.12.2
