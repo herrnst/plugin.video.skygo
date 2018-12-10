@@ -1,3 +1,5 @@
+1.13.3
+- Fix für die Anzeige von Episoden
 1.13.2
 - Widgets: Fix für die Anzeige von Arts im Video OSD
 - 1. Ebene unter Livesender auf statische Liste geändert 

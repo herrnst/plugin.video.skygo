@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.2" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.3" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.1.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -26,7 +26,7 @@
 		<website></website>
 		<email></email>
 		<source></source>
-		<news>1.13.2[CR]- Widgets: Fix für die Anzeige von Arts im Video OSD[CR]- 1. Ebene unter Livesender auf statische Liste geändert[CR][CR]1.13.1[CR]- Fix für Widgets[CR]- LiveTV: Streams ohne Manifest herausfiltern[CR][CR]1.13.0[CR]- Fix für Änderungen seitens SkyGo[CR]</news>
+		<news>1.13.3[CR]- Fix für die Anzeige von Episoden[CR][CR]1.13.2[CR]- Widgets: Fix für die Anzeige von Arts im Video OSD[CR]- 1. Ebene unter Livesender auf statische Liste geändert[CR][CR]1.13.1[CR]- Fix für Widgets[CR]- LiveTV: Streams ohne Manifest herausfiltern[CR][CR]1.13.0[CR]- Fix für Änderungen seitens SkyGo[CR]</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>
