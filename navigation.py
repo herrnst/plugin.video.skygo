@@ -14,6 +14,7 @@ import resources.lib.common as common
 import watchlist
 import re
 import urllib
+import urlparse
 import base64
 
 try:
@@ -371,7 +372,7 @@ def listEpisodesFromSeason(series_id, season_id):
                 art = {'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
                         'fanart': getHeroImage(data),
                         'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + skygo.user_agent}
-                li.setArt()
+                li.setArt(art)
                 url = common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
                 xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=False)
 
@@ -709,10 +710,17 @@ def listAssets(asset_list, isWatchlist=False):
 
         li.setProperty('IsPlayable', str(isPlayable).lower())
 
-        additional_params.update({'art': getArt(item)})
-        li.setArt(additional_params.get('art'))
-        item['url'] += '%s%s' % ('&' if item['url'].find('?') >= 0 else '?', urllib.urlencode(additional_params))
-        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=item['url'], listitem=li, isFolder=(not isPlayable))
+        art = getArt(item)
+        if len(art) > 0:
+            additional_params.update({'art': art})
+            li.setArt(art)
+
+        parsed_url = urlparse.urlparse(item['url'])
+        params = dict(urlparse.parse_qsl(parsed_url.query))
+        params.update(additional_params)
+        url = common.build_url(params)
+
+        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
 
     xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
