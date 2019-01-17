@@ -47,7 +47,7 @@ js_showall = addon.getSetting('js_showall')
 def getNav():
     opener = urllib2.build_opener()
     opener.addheaders = [('User-Agent', skygo.user_agent)]
-    feed = opener.open('https://www.skygo.sky.de/sg/multiplatform/ipad/json/navigation.xml')
+    feed = opener.open(skygo.baseUrl + skygo.baseServicePath + '/multiplatform/ipad/json/navigation.xml')
     nav = ET.parse(feed)
     return nav.getroot()
 
@@ -79,8 +79,6 @@ def rootDir():
     url = common.build_url({'action': 'search'})
     addDir('Suche', url)
 
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
     xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
@@ -124,39 +122,34 @@ def getHeroImage(data):
     return ''
 
 
-def getPoster(data, type=None):
+def getPoster(data):
     if 'name' in data and addon.getSetting('enable_customlogos') == 'true':
         img = getLocalChannelLogo(data['name'])
         if img:
             return img
-    baseUrl = skygo.baseUrl
-    if type and type == 'live':
-        skygo.baseUrlLive
+
     if data.get('dvd_cover', '') != '':
-        return baseUrl + data['dvd_cover']['path'] + '/' + data['dvd_cover']['file'] + '|User-Agent=' + skygo.user_agent
+        return skygo.baseUrl + data['dvd_cover']['path'] + '/' + data['dvd_cover']['file'] + '|User-Agent=' + skygo.user_agent
     if data.get('item_preview_image', '') != '':
-        return baseUrl + data['item_preview_image'] + '|User-Agent=' + skygo.user_agent
+        return skygo.baseUrl + data['item_preview_image'] + '|User-Agent=' + skygo.user_agent
     if data.get('picture', '') != '':
-        return baseUrl + data['picture'] + '|User-Agent=' + skygo.user_agent
+        return skygo.baseUrl + data['picture'] + '|User-Agent=' + skygo.user_agent
     if data.get('logo', '') != '':
-        return baseUrl + data['logo'] + '|User-Agent=' + skygo.user_agent
+        return skygo.baseUrl + data['logo'] + '|User-Agent=' + skygo.user_agent
 
     return ''
 
 
-def getChannelLogo(data, type=None):
+def getChannelLogo(data):
     logopath = ''
     if 'channelLogo' in data:
-        baseUrl = skygo.baseUrl
-        if type and type == 'live':
-            baseUrl = skygo.baseUrlLive
         basepath = data['channelLogo']['basepath'] + '/'
         size = 0
         for logo in data['channelLogo']['logos']:
             logosize = logo['size'][:logo['size'].find('x')]
             if int(logosize) > size:
                 size = int(logosize)
-                logopath = baseUrl + basepath + logo['imageFile'] + '|User-Agent=' + skygo.user_agent
+                logopath = skygo.baseUrl + basepath + logo['imageFile'] + '|User-Agent=' + skygo.user_agent
     return logopath
 
 
@@ -192,6 +185,8 @@ def search():
 
     listAssets(listitems)
 
+    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
+
 
 def listLiveTvChannelDirs():
     channels = ['bundesliga', 'cinema', 'entertainment', 'sport']
@@ -200,8 +195,6 @@ def listLiveTvChannelDirs():
         li = xbmcgui.ListItem(label=channel.title(), iconImage=icon_file, thumbnailImage=icon_file)
         xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=True)
 
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
     xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
@@ -217,13 +210,11 @@ def listLiveTvChannels(channeldir_name):
             details = getLiveChannelDetails(tab.get('eventList'), None)
             listAssets(sorted(details.values(), key=lambda k:k['data']['channel']['name']))
 
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
+    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=False)
 
 
 def getlistLiveChannelData(channel=None):
-    data = skygo.session.get('https://skyticket.sky.de/epgd/st/ipad/excerpt/').json()
+    data = skygo.session.get(skygo.baseUrl + '/epgd' + skygo.baseServicePath + '/ipad/excerpt/').json()
     for tab in data:
         if tab['tabName'] == 'film':
             tab['tabName'] = 'cinema'
@@ -243,7 +234,7 @@ def getlistLiveChannelData(channel=None):
 
                 channel_list.append(event['channel']['name'])
 
-        data_web = skygo.session.get('https://skyticket.sky.de/epgd/st/web/excerpt/').json()
+        data_web = skygo.session.get(skygo.baseUrl + '/epgd' + skygo.baseServicePath + '/web/excerpt/').json()
         data_web = [json for json in data_web if json['tabName'].lower() == channel.lower()]
         for tab_web in data_web:
             for event_web in tab_web['eventList']:
@@ -348,7 +339,7 @@ def getLiveChannelDetails(eventlist, s_manifest_url=None):
 
 
 def listEpisodesFromSeason(series_id, season_id):
-    url = skygo.baseUrl + '/sg/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
+    url = skygo.baseUrl + skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
     r = skygo.session.get(url)
     data = r.json()['serieRecap']['serie']
     xbmcplugin.setContent(skygo.addon_handle, 'episodes')
@@ -367,8 +358,8 @@ def listEpisodesFromSeason(series_id, season_id):
                 li.addContextMenuItems(getWatchlistContextItem({'type': 'Episode', 'data': episode}), replaceItems=False)
                 info, episode = getInfoLabel('Episode', episode)
                 li.setInfo('video', info)
-                li.setLabel(info['title'])
-                li = addStreamInfo(li, episode)
+                li.setLabel(episode.get('li_label') if episode.get('li_label', None) else info['title'])
+                # li = addStreamInfo(li, episode)
                 art = {'poster': skygo.baseUrl + season['path'] + '|User-Agent=' + skygo.user_agent,
                         'fanart': getHeroImage(data),
                         'thumb': skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + skygo.user_agent}
@@ -377,16 +368,11 @@ def listEpisodesFromSeason(series_id, season_id):
                 xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=False)
 
     xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_EPISODE)
-    xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-    xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_TITLE)
-    xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_VIDEO_YEAR)
-    xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_DURATION)
-    xbmcplugin.addSortMethod(skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
     xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
 def listSeasonsFromSeries(series_id):
-    url = skygo.baseUrl + '/sg/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
+    url = skygo.baseUrl + skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
     r = skygo.session.get(url)
     data = r.json()['serieRecap']['serie']
     xbmcplugin.setContent(skygo.addon_handle, 'tvshows')
@@ -400,13 +386,8 @@ def listSeasonsFromSeries(series_id):
                    'thumb': icon_file})
         li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
         li.addContextMenuItems(getWatchlistContextItem({'type': 'Episode', 'data': season}, False), replaceItems=False)
-        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url,
-                                        listitem=li, isFolder=True)
+        xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=True)
 
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_TITLE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_VIDEO_YEAR)
     xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
@@ -423,7 +404,7 @@ def getAssets(data, key='asset_type'):
             url = common.build_url({'action': 'listSeries', 'id': asset['id']})
             asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
         elif asset[key].lower() == 'season':
-            url = skygo.baseUrl + '/sg/multiplatform/web/json/details/series/' + str(asset['serie_id']) + '_global.json'
+            url = skygo.baseUrl + skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(asset['serie_id']) + '_global.json'
             r = skygo.session.get(url)
             serie = r.json()['serieRecap']['serie']
             asset['synopsis'] = serie['synopsis']
@@ -596,9 +577,9 @@ def getInfoLabel(asset_type, item_data):
                 info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
                 info['title'] = '[COLOR blue]%s |[/COLOR] %s' % (data.get('serie_title', ''), data.get('title', ''))
         if addon.getSetting('channel_name_first') == 'true':
-            info['title'] = '[COLOR orange][%s][/COLOR] %s' % (item_data['channel']['name'], info['title'])
+            item_data['li_label'] = '[COLOR orange][%s][/COLOR] %s' % (item_data['channel']['name'], info['title'])
         else:
-            info['title'] = '%s [COLOR orange][%s][/COLOR]' % (info['title'], item_data['channel']['name'])
+            item_data['li_label'] = '%s [COLOR orange][%s][/COLOR]' % (info['title'], item_data['channel']['name'])
 
         info['plot'] = item_data.get('event').get('startTime') + ' - ' + item_data.get('event').get('endTime') + "\n\n" + info['plot']
     if asset_type == 'searchresult':
@@ -611,7 +592,8 @@ def getInfoLabel(asset_type, item_data):
         elif data.get('type', '') == 'Episode':
             asset_type = 'Episode'
             info['plot'] = 'Folge: ' + data.get('title', '') + '\n\n' + data.get('synopsis', '').replace('\n', '').strip()
-            info['title'] = '%1dx%02d. %s' % (data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
+            info['title'] = data.get('title', '')
+            item_data['li_label'] = '%1dx%02d. %s' % (data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
     if asset_type == 'Film':
         info['mediatype'] = 'movie'
         if addon.getSetting('lookup_tmdb_data') == 'true' and not data.get('title', '') == '':
@@ -638,7 +620,8 @@ def getInfoLabel(asset_type, item_data):
         info['season'] = data.get('season_nr', '')
         info['tvshowtitle'] = data.get('serie_title', '')
         if info['title'] == '':
-            info['title'] = '%s - S%02dE%02d' % (data.get('serie_title', ''), data.get('season_nr', 0), data.get('episode_nr', 0))
+            info['title'] = data.get('episode_nr', 0)
+            item_data['li_label'] = '%s - S%02dE%02d' % (data.get('serie_title', ''), data.get('season_nr', 0), data.get('episode_nr', 0))
 
     return info, item_data
 
@@ -664,7 +647,6 @@ def getWatchlistContextItem(item, delete=False):
 
 
 def listAssets(asset_list, isWatchlist=False):
-    cacheToDisc = True
     for item in asset_list:
         isPlayable = False
         additional_params = {}
@@ -681,7 +663,7 @@ def listAssets(asset_list, isWatchlist=False):
             info, item['data'] = getInfoLabel(item['type'], item['data'])
             li.setInfo('video', info)
             additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
-            li.setLabel(info['title'])
+            li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label', None) else info['title'])
             # if item['type'] not in ['Series', 'Season']:
             #    li = addStreamInfo(li, item['data'])
 
@@ -697,7 +679,6 @@ def listAssets(asset_list, isWatchlist=False):
         elif item['type'] == 'searchresult':
             xbmcplugin.setContent(skygo.addon_handle, 'movies')
         elif item['type'] == 'live':
-            cacheToDisc = False
             xbmcplugin.setContent(skygo.addon_handle, 'files')
             if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
                 xbmcplugin.setContent(skygo.addon_handle, 'movies')
@@ -722,13 +703,6 @@ def listAssets(asset_list, isWatchlist=False):
 
         xbmcplugin.addDirectoryItem(handle=skygo.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
 
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_TITLE)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_VIDEO_YEAR)
-    xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_DURATION)
-    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=cacheToDisc)
-
 
 def listPath(path):
     page = {}
@@ -744,6 +718,8 @@ def listPath(path):
 
     listitems = parseListing(page, path)
     listAssets(listitems)
+
+    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
 def getPageItems(nodes, page_id):
@@ -782,10 +758,7 @@ def listPage(page_id):
 
         addDir(item.attrib['label'], url)
 
-    if len(items) > 0:
-        xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_NONE)
-        xbmcplugin.addSortMethod(handle=skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_LABEL)
-        xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
+    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
 def getAssetDetailsFromCache(asset_id):
@@ -896,17 +869,18 @@ def getArt(item):
             poster_path = getPoster(item['data'])
         art.update({'poster': poster_path})
     elif item['type'] == 'live':
-        fanart = skygo.baseUrlLive + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else skygo.baseUrlLive + '/bin/Picture/817/C_1_Picture_7179_content_4.jpg'
-        thumb = skygo.baseUrlLive + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else getChannelLogo(item['data']['channel'], item['type'])
+        poster = skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else getChannelLogo(item['data']['channel'])
+        fanart = skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else skygo.baseUrl + '/bin/Picture/817/C_1_Picture_7179_content_4.jpg'
+        thumb = poster
+
         if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
             if 'TMDb_poster_path' in item['data']:
                 poster = item['data']['TMDb_poster_path']
             else:
-                poster = getPoster(item['data']['mediainfo'], item['type'])
+                poster = getPoster(item['data']['mediainfo'])
             thumb = poster
             xbmcplugin.setContent(skygo.addon_handle, 'movies')
-        else:
-            poster = getPoster(item['data']['channel'], item['type'])
+
         art.update({'poster':  poster + '|User-Agent=' + skygo.user_agent, 'fanart': fanart + '|User-Agent=' + skygo.user_agent, 'thumb': thumb + '|User-Agent=' + skygo.user_agent})
 
     return art

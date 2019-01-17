@@ -64,8 +64,8 @@ def getInputstreamAddon():
 class SkyGo:
     """Sky Go Class"""
 
-    baseUrl = "https://www.skygo.sky.de"
-    baseUrlLive = 'https://skyticket.sky.de'
+    baseUrl = "https://skyticket.sky.de"
+    baseServicePath = '/st'
     entitlements = []
 
     def __init__(self, addon_handle):
@@ -211,7 +211,7 @@ class SkyGo:
 
         # If no url is given we assume that the url hast to be build with the id
         if url == '':
-            url = self.baseUrl + "/sg/multiplatform/web/xml/player_playlist/asset/" + str(id) + ".xml"
+            url = self.baseUrl + self.baseServicePath + "/multiplatform/web/xml/player_playlist/asset/" + str(id) + ".xml"
 
         r = requests.get(url)
         tree = ET.ElementTree(ET.fromstring(r.text.encode('utf-8')))
@@ -227,8 +227,8 @@ class SkyGo:
         now = datetime.datetime.now()
         current_date = now.strftime("%d.%m.%Y")
         # Get Epg information
-        xbmc.log('[Sky Go]  eventlisturl = https://www.skygo.sky.de/epgd/sg/web/eventList/%s/%s/' % (current_date, epg_channel_id))
-        r = requests.get('https://www.skygo.sky.de/epgd/sg/web/eventList/' + current_date + '/' + epg_channel_id + '/')
+        xbmc.log('[Sky Go]  eventlisturl = %s/epgd%s/web/eventList/%s/%s/' % (self.baseUrl, self.baseServicePath, current_date, epg_channel_id))
+        r = requests.get(self.baseUrl + '/epgd' + self.baseServicePath + '/web/eventList/' + current_date + '/' + epg_channel_id + '/')
         events = r.json()[epg_channel_id]
         for event in events:
             start_date = datetime.datetime(*(time.strptime(event['startDate'] + ' ' + event['startTime'], '%d.%m.%Y %H:%M')[0:6]))
@@ -242,15 +242,15 @@ class SkyGo:
     def getEventPlayInfo(self, event_id, epg_channel_id):
         # If not Sky news then get details id else use hardcoded playinfo_url
         if epg_channel_id != '17':
-            r = requests.get('https://www.skygo.sky.de/epgd/sg/web/eventDetail/' + event_id + '/' + epg_channel_id + '/')
+            r = requests.get(self.baseUrl + '/epgd' + self.baseServicePath + '/web/eventDetail/' + event_id + '/' + epg_channel_id + '/')
             event_details_link = r.json()['detailPage']
             # Extract id from details link
             p = re.compile('/([0-9]*)\.html', re.IGNORECASE)
             m = re.search(p, event_details_link)
             playlist_id = m.group(1)
-            playinfo_url = self.baseUrl + '/sg/multiplatform/web/xml/player_playlist/asset/' + playlist_id + '.xml'
+            playinfo_url = self.baseUrl + self.baseServicePath + '/multiplatform/web/xml/player_playlist/asset/' + playlist_id + '.xml'
         else:
-            playinfo_url = self.baseUrl + '/sg/multiplatform/web/xml/player_playlist/ssn/127.xml'
+            playinfo_url = self.baseUrl + self.baseServicePath + '/multiplatform/web/xml/player_playlist/ssn/127.xml'
 
         return self.getPlayInfo(url=playinfo_url)
 
@@ -258,12 +258,12 @@ class SkyGo:
         return entitlement in self.entitlements
 
     def getAssetDetails(self, asset_id):
-        url = 'https://www.skygo.sky.de/sg/multiplatform/web/json/details/asset/' + str(asset_id) + '.json'
+        url = self.baseUrl + self.baseServicePath + '/multiplatform/web/json/details/asset/' + str(asset_id) + '.json'
         r = self.session.get(url)
         return r.json()['asset']
 
     def getClipDetails(self, clip_id):
-        url = 'https://www.skygo.sky.de/sg/multiplatform/web/json/details/clip/' + str(clip_id) + '.json'
+        url = self.baseUrl + self.baseServicePath + '/multiplatform/web/json/details/clip/' + str(clip_id) + '.json'
         r = self.session.get(url)
         return r.json()['detail']
 

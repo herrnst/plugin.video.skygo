@@ -32,19 +32,21 @@ def listWatchlist(asset_type, page=0):
     url = base_url + 'get?type=' + asset_type + '&page=' + str(page) + '&pageSize=8'
     r = skygo.session.get(url)
     data = json.loads(r.text[3:len(r.text) - 1])
-    if not 'watchlist' in data:
-        return
-    listitems = []
-    for item in data['watchlist']:
-        asset = skygo.getAssetDetails(item['assetId'])
-        for asset_details in nav.getAssets([asset]):
-            listitems.append(asset_details)
 
-    if data['hasNext']:
-        url = common.build_url({'action': 'watchlist', 'list': asset_type, 'page': page + 1})
-        listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
+    listitems = []
+    if data.get('watchlist', None):
+        for item in data['watchlist']:
+            asset = skygo.getAssetDetails(item['assetId'])
+            for asset_details in nav.getAssets([asset]):
+                listitems.append(asset_details)
+
+        if data['hasNext']:
+            url = common.build_url({'action': 'watchlist', 'list': asset_type, 'page': page + 1})
+            listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
 
     nav.listAssets(listitems, isWatchlist=True)
+
+    xbmcplugin.endOfDirectory(skygo.addon_handle, cacheToDisc=True)
 
 
 def addToWatchlist(asset_id, asset_type):
