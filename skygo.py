@@ -31,24 +31,9 @@ password = addon.getSetting('password')
 datapath = xbmc.translatePath(addon.getAddonInfo('profile'))
 cookiePath = datapath + 'COOKIES'
 
-platform = 0
-osAndroid = 1
-if xbmc.getCondVisibility('system.platform.android'):
-    platform = osAndroid
-
 license_url = 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser|User-Agent=Mozilla%2F5.0%20(X11%3B%20Linux%20x86_64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F49.0.2623.87%20Safari%2F537.36&Referer=http%3A%2F%2Fwww.skygo.sky.de%2Ffilm%2Fscifi--fantasy%2Fjupiter-ascending%2Fasset%2Ffilmsection%2F144836.html&Content-Type=|R{SSM}|'
 license_type = 'com.widevine.alpha'
 android_deviceid = ''
-if platform == osAndroid:
-    license_url = ''
-    license_type = 'com.microsoft.playready'
-
-    if addon.getSetting('android_deviceid'):
-        android_deviceid = addon.getSetting('android_deviceid')
-    else:
-        android_deviceid = str(uuid.uuid1())
-        addon.setSetting('android_deviceid', android_deviceid)
-
 
 # Get installed inputstream addon
 def getInputstreamAddon():
@@ -268,12 +253,9 @@ class SkyGo:
         return r.json()['detail']
 
     def get_init_data(self, session_id, apix_id):
-        if platform == osAndroid:
-            init_data = 'sessionId=' + self.sessionId + '&apixId=' + apix_id + '&deviceId=' + self.android_deviceId + '&platformId=AndP&product=BW&version=1.7.1&DeviceFriendlyName=Android'
-        else:
-            init_data = 'kid={UUID}&sessionId=' + session_id + '&apixId=' + apix_id + '&platformId=&product=BW&channelId='
-            init_data = struct.pack('1B', *[30]) + init_data
-            init_data = base64.urlsafe_b64encode(init_data)
+        init_data = 'kid={UUID}&sessionId=' + session_id + '&apixId=' + apix_id + '&platformId=&product=BW&channelId='
+        init_data = struct.pack('1B', *[30]) + init_data
+        init_data = base64.urlsafe_b64encode(init_data)
         return init_data
 
     def parentalCheck(self, parental_rating, play=False):
