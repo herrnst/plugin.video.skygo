@@ -34,11 +34,15 @@ def listWatchlist(asset_type, page=0):
     data = json.loads(r.text[3:len(r.text) - 1])
 
     listitems = []
-    if data.get('watchlist', None):
-        for item in data['watchlist']:
-            asset = skygo.getAssetDetails(item['assetId'])
-            for asset_details in nav.getAssets([asset]):
-                listitems.append(asset_details)
+    if data.get('watchlist'):
+        for item in data.get('watchlist'):
+            if item.get('assetId'):
+                try:
+                    asset = skygo.getAssetDetails(item.get('assetId'))
+                    for asset_details in nav.getAssets([asset]):
+                        listitems.append(asset_details)
+                except:
+                    xbmc.log('[Sky Go] watchlist details could not be found for item {0}'.format(item))
 
         if data['hasNext']:
             url = common.build_url({'action': 'watchlist', 'list': asset_type, 'page': page + 1})

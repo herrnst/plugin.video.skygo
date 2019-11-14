@@ -1,3 +1,7 @@
+1.13.5
+- LiveTV: Überprüfung auf Manifest-Url = None
+- Wiederholungen aus Sportsektion entfernt
+- Watchlist: Einträge überspringen, für die keine Details abrufbar sind
 1.13.4
 - Wechsel der API
 1.13.3

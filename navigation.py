@@ -34,11 +34,10 @@ skygo = None
 
 # Blacklist: diese nav_ids nicht anzeigen
 # 15 = Snap
-# Sportsection: 27 = Aktuell, 32 = News, 33 = Mediathek, 34 = Datencenter
-nav_blacklist = [15, 27, 32, 33, 34]
+# Sportsection: 27 = Aktuell, 32 = News, 33 = Mediathek, 34 = Datencenter, 35 = Sport: Wiederholungen
+nav_blacklist = [15, 27, 32, 33, 34, 35]
 # Force: anzeige dieser nav_ids erzwingen
-# Sport: Wiederholungen
-nav_force = [35, 36, 37, 161]
+nav_force = [36, 37, 161]
 
 # Jugendschutz
 js_showall = addon.getSetting('js_showall')
@@ -298,12 +297,12 @@ def getLiveChannelDetails(eventlist, s_manifest_url=None):
                     if assetid > 0:
                         mediainfo = getAssetDetailsFromCache(assetid)
                         event['mediainfo'] = mediainfo
-                        if not manifest_url.startswith('http'):
+                        if not manifest_url or not manifest_url.startswith('http'):
                             manifest_url = mediainfo['media_url']
-                        if not manifest_url.startswith('http'):
+                        if not manifest_url or not manifest_url.startswith('http'):
                             continue
                 except:
-                    if not manifest_url.startswith('http'):
+                    if not manifest_url or not manifest_url.startswith('http'):
                         continue
 
         if event['event']['detailPage'].startswith("http"):
