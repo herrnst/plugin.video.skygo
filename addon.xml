@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.5" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.6" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.1.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -26,7 +26,7 @@
 		<website></website>
 		<email></email>
 		<source></source>
-		<news>1.13.5[CR]-LiveTV: Überprüfung auf Manifest-Url = None[CR]-Wiederholungen aus Sportsektion entfernt[CR]-Watchlist: Einträge überspringen, für die keine Details abrufbar sind</news>
+		<news>1.13.6[CR]- Live Planer: Alte Kategorien ausgeblendet[CR]- Android: Einstellung zum Erzwingen von Widevine[CR]- Überprüfung, ob abgerufene Daten JSON sind</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>

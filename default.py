@@ -8,6 +8,7 @@ import xbmc
 import resources.lib.vod as vod
 import resources.lib.clips as clips
 import resources.lib.liveTv as liveTv
+import resources.lib.common as common
 from skygo import SkyGo
 
 import navigation as nav
@@ -17,7 +18,7 @@ plugin_base_url = sys.argv[0]
 params = dict(urlparse.parse_qsl(sys.argv[2][1:]))
 
 addon_handle = int(sys.argv[1])
-skygo = SkyGo(addon_handle)
+skygo = SkyGo(addon_handle, common)
 
 vod.skygo = skygo
 nav.skygo = skygo

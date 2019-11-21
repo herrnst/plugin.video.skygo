@@ -23,7 +23,10 @@ def getClipToken(content):
     timestamp = str(time.time()).replace('.', '')
     url = 'https://www.skygo.sky.de/SILK/services/public/clipToken?clipType=' + clipType + '&product=SG&platform=web&version=12354=&_' + timestamp
     r = skygo.session.get(url)
-    return json.loads(r.text[3:len(r.text) - 1])
+    if common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+        return json.loads(r.text[3:len(r.text) - 1])
+    else:
+        None
 
 
 def buildClipUrl(url, token):

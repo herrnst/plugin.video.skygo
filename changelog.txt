@@ -1,3 +1,7 @@
+1.13.6
+- Live Planer: Alte Kategorien ausgeblendet
+- Android: Einstellung zum Erzwingen von Widevine
+- Überprüfung, ob abgerufene Daten JSON sind
 1.13.5
 - LiveTV: Überprüfung auf Manifest-Url = None
 - Wiederholungen aus Sportsektion entfernt

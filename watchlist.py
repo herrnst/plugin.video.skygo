@@ -37,11 +37,11 @@ def listWatchlist(asset_type, page=0):
     if data.get('watchlist'):
         for item in data.get('watchlist'):
             if item.get('assetId'):
-                try:
-                    asset = skygo.getAssetDetails(item.get('assetId'))
+                asset = skygo.getAssetDetails(item.get('assetId'))
+                if asset:
                     for asset_details in nav.getAssets([asset]):
                         listitems.append(asset_details)
-                except:
+                else:
                     xbmc.log('[Sky Go] watchlist details could not be found for item {0}'.format(item))
 
         if data['hasNext']:

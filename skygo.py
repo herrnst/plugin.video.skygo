@@ -33,13 +33,11 @@ cookiePath = datapath + 'COOKIES'
 
 platform = 0
 osAndroid = 1
-if xbmc.getCondVisibility('system.platform.android'):
-    platform = osAndroid
-
 license_url = 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser|User-Agent=Mozilla%2F5.0%20(X11%3B%20Linux%20x86_64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F49.0.2623.87%20Safari%2F537.36&Referer=http%3A%2F%2Fwww.skygo.sky.de%2Ffilm%2Fscifi--fantasy%2Fjupiter-ascending%2Fasset%2Ffilmsection%2F144836.html&Content-Type=|R{SSM}|'
 license_type = 'com.widevine.alpha'
 android_deviceid = ''
-if platform == osAndroid:
+if xbmc.getCondVisibility('system.platform.android') and addon.getSetting('android_drm_widevine') == 'false':
+    platform = osAndroid
     license_url = ''
     license_type = 'com.microsoft.playready'
 
@@ -50,17 +48,6 @@ if platform == osAndroid:
         addon.setSetting('android_deviceid', android_deviceid)
 
 
-# Get installed inputstream addon
-def getInputstreamAddon():
-    r = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "id": 1, "method": "Addons.GetAddonDetails", "params": {"addonid":"inputstream.adaptive", "properties": ["enabled"]}}')
-    data = json.loads(r)
-    if not "error" in data.keys():
-        if data["result"]["addon"]["enabled"] == True:
-            return True
-
-    return None
-
-
 class SkyGo:
     """Sky Go Class"""
 
@@ -68,8 +55,10 @@ class SkyGo:
     baseServicePath = '/st'
     entitlements = []
 
-    def __init__(self, addon_handle):
+
+    def __init__(self, addon_handle, common):
         self.sessionId = ''
+        self.common = common
         self.cookiePath = cookiePath
         self.license_url = license_url
         self.license_type = license_type
@@ -86,6 +75,7 @@ class SkyGo:
                 cookies = requests.utils.cookiejar_from_dict(pickle.load(f))
                 self.session.cookies = cookies
         return
+
 
     def isLoggedIn(self):
         """Check if User is still logged in with the old cookies"""
@@ -106,9 +96,11 @@ class SkyGo:
                 return False
         return False
 
+
     def killSessions(self):
         # Kill other sessions
         r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/kill/web?version=12354&platform=web&product=SG')
+
 
     def sendLogin(self, username, password):
         # Try to login
@@ -120,6 +112,7 @@ class SkyGo:
         # Parse jsonp
         response = r.text[3:-1]
         return json.loads(response)
+
 
     def login(self, username=username, password=password, forceLogin=False, askKillSession=True):
         # If already logged in and active session everything is fine
@@ -162,6 +155,7 @@ class SkyGo:
         # If any case is not matched return login failed
         return False
 
+
     def setLogin(self):
         keyboard = xbmc.Keyboard(username, 'Kundennummer / E-Mail-Adresse')
         keyboard.doModal()
@@ -180,6 +174,7 @@ class SkyGo:
                     addon.setSetting('password', '')
                     addon.setSetting('login_acc', '')
 
+
     def setLoginPW(self):
         keyboard = xbmc.Keyboard('', 'Passwort', True)
         keyboard.doModal(60000)
@@ -188,10 +183,12 @@ class SkyGo:
             return password
         return ''
 
+
     def encode(self, data):
         k = triple_des(self.getmac(), CBC, "\0\0\0\0\0\0\0\0", padmode=PAD_PKCS5)
         d = k.encrypt(data)
         return base64.b64encode(d)
+
 
     def decode(self, data):
         if not data:
@@ -200,11 +197,13 @@ class SkyGo:
         d = k.decrypt(base64.b64decode(data))
         return d
 
+
     def getmac(self):
         mac = uuid.getnode()
         if (mac >> 40) % 2:
             mac = node()
         return uuid.uuid5(uuid.NAMESPACE_DNS, str(mac)).bytes
+
 
     def getPlayInfo(self, id='', url=''):
         ns = {'media': 'http://search.yahoo.com/mrss/', 'skyde': 'http://sky.de/mrss_extensions/'}
@@ -221,6 +220,7 @@ class SkyGo:
         package_code = root.find('channel/item/skyde:packageCode', ns).text
 
         return {'manifestUrl': manifest_url, 'apixId': apix_id, 'duration': 0, 'package_code': package_code}
+
 
     def getCurrentEvent(self, epg_channel_id):
         # Save date for fure use
@@ -239,6 +239,7 @@ class SkyGo:
         # Return False if no current running event
         return False
 
+
     def getEventPlayInfo(self, event_id, epg_channel_id):
         # If not Sky news then get details id else use hardcoded playinfo_url
         if epg_channel_id != '17':
@@ -254,18 +255,25 @@ class SkyGo:
 
         return self.getPlayInfo(url=playinfo_url)
 
+
     def may_play(self, entitlement):
         return entitlement in self.entitlements
+
 
     def getAssetDetails(self, asset_id):
         url = self.baseUrl + self.baseServicePath + '/multiplatform/web/json/details/asset/' + str(asset_id) + '.json'
         r = self.session.get(url)
-        return r.json()['asset']
+        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+            return r.json()['asset']
+        else:
+            return None
+
 
     def getClipDetails(self, clip_id):
         url = self.baseUrl + self.baseServicePath + '/multiplatform/web/json/details/clip/' + str(clip_id) + '.json'
         r = self.session.get(url)
         return r.json()['detail']
+
 
     def get_init_data(self, session_id, apix_id):
         if platform == osAndroid:
@@ -275,6 +283,7 @@ class SkyGo:
             init_data = struct.pack('1B', *[30]) + init_data
             init_data = base64.urlsafe_b64encode(init_data)
         return init_data
+
 
     def parentalCheck(self, parental_rating, play=False):
         if parental_rating == 0:
@@ -297,6 +306,7 @@ class SkyGo:
                         return False
 
         return True
+
 
     def play(self, manifest_url, package_code, parental_rating=0, info_tag=None, art_tag=None, apix_id=None):
         # Inputstream and DRM
