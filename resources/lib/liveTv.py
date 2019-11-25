@@ -6,10 +6,9 @@ import xbmc
 import xbmcaddon
 import xbmcgui
 import xbmcplugin
-import navigation as nav
 
-addon = xbmcaddon.Addon()
 skygo = None
+nav = None
 
 
 def playLiveTv(manifest_url, package_code, infolabels=None, art=None, parental_rating=0):

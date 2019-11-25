@@ -4,11 +4,8 @@
 import json
 import time
 import base64
-import urllib
 # cryptopy
 from crypto.cipher import aes_cbc
-# pycrypto
-# from Crypto.Cipher import AES
 
 skygo = None
 

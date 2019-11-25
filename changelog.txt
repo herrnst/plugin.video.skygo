@@ -1,3 +1,6 @@
+1.13.7
+- Caching-Fehler behoben, wenn keine Daten von der API abgerufen werden konnten
+- Kompabilität zu Python 3
 1.13.6
 - Live Planer: Alte Kategorien ausgeblendet
 - Android: Einstellung zum Erzwingen von Widevine

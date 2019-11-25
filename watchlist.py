@@ -7,9 +7,9 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 import resources.lib.common as common
-import navigation as nav
 
 skygo = None
+nav = None
 
 base_url = 'https://www.skygo.sky.de/SILK/services/public/watchlist/'
 
@@ -38,7 +38,7 @@ def listWatchlist(asset_type, page=0):
         for item in data.get('watchlist'):
             if item.get('assetId'):
                 asset = skygo.getAssetDetails(item.get('assetId'))
-                if asset:
+                if len(asset) > 0:
                     for asset_details in nav.getAssets([asset]):
                         listitems.append(asset_details)
                 else:

@@ -2,34 +2,37 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import urlparse
-import ast
-import xbmc
+import xbmc, xbmcaddon
 import resources.lib.vod as vod
 import resources.lib.clips as clips
 import resources.lib.liveTv as liveTv
 import resources.lib.common as common
-from skygo import SkyGo
 
-import navigation as nav
 import watchlist
+from skygo import SkyGo
+from navigation import Navigation
+
+try:
+    import urllib.parse as urlparse
+except:
+    import urlparse
 
 plugin_base_url = sys.argv[0]
 params = dict(urlparse.parse_qsl(sys.argv[2][1:]))
 
 addon_handle = int(sys.argv[1])
-skygo = SkyGo(addon_handle, common)
+addon = xbmcaddon.Addon()
+skygo = SkyGo(addon_handle, addon, common)
+nav = Navigation(addon, common, skygo)
 
 vod.skygo = skygo
-nav.skygo = skygo
 clips.skygo = skygo
 liveTv.skygo = skygo
 watchlist.skygo = skygo
 
-
-def getDictFromString(str):
-    return ast.literal_eval(str) if str else None
-
+vod.nav = nav
+liveTv.nav = nav
+watchlist.nav = nav
 
 # Router for all plugin actions
 if 'action' in params:
@@ -37,11 +40,11 @@ if 'action' in params:
     xbmc.log('[Sky Go] params = %s' % params)
 
     if params['action'] == 'playVod':
-        vod.playAsset(params['vod_id'], infolabels=getDictFromString(params.get('infolabels', None)), art=getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
+        vod.playAsset(params['vod_id'], infolabels=common.getDictFromString(params.get('infolabels', None)), art=common.getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
     elif params['action'] == 'playClip':
         clips.playClip(params['id'])
     elif params['action'] == 'playLive':
-        liveTv.playLiveTv(params['manifest_url'], package_code=params.get('package_code'), infolabels=getDictFromString(params.get('infolabels', None)), art=getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
+        liveTv.playLiveTv(params['manifest_url'], package_code=params.get('package_code'), infolabels=common.getDictFromString(params.get('infolabels', None)), art=common.getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
     elif params['action'] == 'listLiveTvChannelDirs':
         nav.listLiveTvChannelDirs()
     elif params['action'] == 'listLiveTvChannels':

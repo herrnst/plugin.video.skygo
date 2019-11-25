@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.6" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.7" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
-		<import addon="xbmc.python" version="2.1.0"/>
+		<import addon="xbmc.python" version="2.3.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
 		<import addon="script.module.routing" version="0.2.0"/>
 		<import addon="script.module.cryptopy" version="1.2.6"/>
@@ -9,6 +9,7 @@
 		<import addon="script.module.pydes" version="2.0.1"/>
 		<import addon="inputstream.adaptive" version="2.2.27"/>
 		<import addon="script.module.inputstreamhelper" version="0.2.2"/>
+		<import addon="script.module.kodi-six" version="0.1.0"/>
 	</requires>
 	<extension point="xbmc.python.pluginsource" library="default.py">
 		<provides>video</provides>
@@ -26,7 +27,7 @@
 		<website></website>
 		<email></email>
 		<source></source>
-		<news>1.13.6[CR]- Live Planer: Alte Kategorien ausgeblendet[CR]- Android: Einstellung zum Erzwingen von Widevine[CR]- Überprüfung, ob abgerufene Daten JSON sind</news>
+		<news>1.13.7[CR]- Caching-Fehler behoben, wenn keine Daten von der API abgerufen werden konnten[CR]- Kompabilität zu Python 3</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>
