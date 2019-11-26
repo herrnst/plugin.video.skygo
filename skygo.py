@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import unicode_literals
+from kodi_six.utils import py2_encode
 import base64
 import struct
 import requests
@@ -11,14 +12,13 @@ import time
 import pickle
 import os
 import xml.etree.ElementTree as ET
-from pyDes import *
+from pyDes import triple_des, CBC, PAD_PKCS5
 from platform import node
 import uuid
 import xbmc
 import xbmcgui
 import xbmcplugin
 from inputstreamhelper import Helper
-from kodi_six.utils import py2_encode
 
 
 class SkyGo:
@@ -57,7 +57,7 @@ class SkyGo:
                     cookies = requests.utils.cookiejar_from_dict(pickle.load(f))
                     self.session.cookies = cookies
                 except:
-                    self.isLoggedIn()
+                    self.login(forceLogin=True)
                     # Save the cookies
                     with open(self.cookiePath, 'wb') as f:
                         pickle.dump(requests.utils.dict_from_cookiejar(self.session.cookies), f)
@@ -178,7 +178,7 @@ class SkyGo:
 
 
     def encode(self, data):
-        k = triple_des(self.getmac(), CBC, "\0\0\0\0\0\0\0\0", padmode=PAD_PKCS5)
+        k = triple_des(self.getmac(), CBC, py2_encode("\0\0\0\0\0\0\0\0"), padmode=PAD_PKCS5)
         d = k.encrypt(data)
         return base64.b64encode(d)
 
@@ -186,7 +186,7 @@ class SkyGo:
     def decode(self, data):
         if not data:
             return ''
-        k = triple_des(self.getmac(), CBC, "\0\0\0\0\0\0\0\0", padmode=PAD_PKCS5)
+        k = triple_des(self.getmac(), CBC, py2_encode("\0\0\0\0\0\0\0\0"), padmode=PAD_PKCS5)
         d = k.decrypt(base64.b64decode(data))
         return d.decode('utf-8')
 
@@ -206,7 +206,7 @@ class SkyGo:
             url = self.baseUrl + self.baseServicePath + "/multiplatform/web/xml/player_playlist/asset/" + str(id) + ".xml"
 
         r = requests.get(url)
-        tree = ET.ElementTree(ET.fromstring(py2_encode(r.text)))
+        tree = ET.ElementTree(ET.fromstring(r.text))
         root = tree.getroot()
         manifest_url = root.find('channel/item/media:content', ns).attrib['url']
         apix_id = root.find('channel/item/skyde:apixEventId', ns).text

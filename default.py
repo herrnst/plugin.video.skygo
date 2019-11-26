@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import unicode_literals
 import sys
 import xbmc, xbmcaddon
 import resources.lib.vod as vod
