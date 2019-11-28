@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from kodi_six.utils import py2_encode, py2_decode
+from kodi_six.utils import py2_encode
 import os
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon, xbmcvfs
 import json
@@ -10,13 +10,6 @@ import time
 import xml.etree.ElementTree as ET
 import re
 import base64
-
-import watchlist
-
-try:
-    import StorageServer
-except:
-    import storageserverdummy as StorageServer
 
 try:
     import urllib.parse as urlparse
@@ -32,18 +25,20 @@ except:
 class Navigation:
 
 
-    def __init__(self, addon, common, skygo):
+    def __init__(self, common, skygo):
 
-        self.addon = addon
         self.common = common
         self.skygo = skygo
 
-        # Doc for Caching Function: http://kodi.wiki/index.php?title=Add-on:Common_plugin_cache
-        self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.addon.getAddonInfo('name')), 24 * 30)
-        self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.addon.getAddonInfo('name')), 24 * 30)
+        self.icon_file = xbmc.translatePath('{0}/icon.png'.format(self.common.addon.getAddonInfo('path')))
 
-        self.extMediaInfos = self.addon.getSetting('enable_extended_mediainfos')
-        self.icon_file = xbmc.translatePath('{0}/icon.png'.format(self.addon.getAddonInfo('path')))
+        self.channel_name_first = self.common.addon.getSetting('channel_name_first')
+        self.customlogos = self.common.addon.getSetting('enable_customlogos')
+        self.extMediaInfos = self.common.addon.getSetting('enable_extended_mediainfos')
+        self.js_showall = self.common.addon.getSetting('js_showall')
+        self.logopath = common.addon.getSetting('logoPath')
+        self.lookup_tmdb_data = self.common.addon.getSetting('lookup_tmdb_data')
+        self.password = self.common.addon.getSetting('password')
 
         # Blacklist: diese nav_ids nicht anzeigen
         # 15 = Snap
@@ -51,13 +46,24 @@ class Navigation:
         self.nav_blacklist = [15, 35, 154, 268, 262, 290, 159]
 
         # Jugendschutz
-        self.js_showall = self.addon.getSetting('js_showall')
+
+        # Doc for Caching Function: http://kodi.wiki/index.php?title=Add-on:Common_plugin_cache
+        if self.extMediaInfos == 'true' or self.lookup_tmdb_data == 'true':
+            try:
+                import StorageServer
+            except:
+                import storageserverdummy as StorageServer
+
+            if self.extMediaInfos == 'true':
+                self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.common.addon.getAddonInfo('name')), 24 * 30)
+            if self.lookup_tmdb_data == 'true':
+                self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.common.addon.getAddonInfo('name')), 24 * 30)
 
 
     def getNav(self):
         opener = build_opener()
         opener.addheaders = [('User-Agent', self.skygo.user_agent)]
-        feed = opener.open(self.skygo.baseUrl + self.skygo.baseServicePath + '/multiplatform/ipad/json/navigation.xml')
+        feed = opener.open('{0}{1}/multiplatform/ipad/json/navigation.xml'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
         nav = ET.parse(feed)
         return nav.getroot()
 
@@ -89,32 +95,32 @@ class Navigation:
         url = self.common.build_url({'action': 'search'})
         self.addDir('Suche', url)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def addDir(self, label, url, icon=None):
         li = xbmcgui.ListItem(label)
         li.setArt({'icon': icon if icon else self.icon_file, 'thumb': self.icon_file})
-        xbmcplugin.addDirectoryItem(handle=self.skygo.addon_handle, url=url, listitem=li, isFolder=True)
+        xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
 
 
     def showParentalSettings(self):
         fsk_list = ['Deaktiviert', '0', '6', '12', '16', '18']
         dlg = xbmcgui.Dialog()
         code = dlg.input('PIN Code', type=xbmcgui.INPUT_NUMERIC)
-        if self.skygo.encode(code) == self.addon.getSetting('password'):
+        if self.skygo.encode(code) == self.password:
             idx = dlg.select('Wähle maximale FSK Alterstufe', fsk_list)
             if idx >= 0:
                 fsk_code = fsk_list[idx]
                 if fsk_code == 'Deaktiviert':
-                    self.addon.setSetting('js_maxrating', '-1')
+                    self.common.addon.setSetting('js_maxrating', '-1')
                 else:
-                    self.addon.setSetting('js_maxrating', fsk_list[idx])
+                    self.common.addon.setSetting('js_maxrating', fsk_list[idx])
             if idx > 0:
                 if dlg.yesno('Jugendschutz', 'Sollen Inhalte mit einer Alterseinstufung über ', 'FSK ' + fsk_list[idx] + ' angezeigt werden?'):
-                    self.addon.setSetting('js_showall', 'true')
+                    self.common.addon.setSetting('js_showall', 'true')
                 else:
-                    self.addon.setSetting('js_showall', 'false')
+                    self.common.addon.setSetting('js_showall', 'false')
         else:
             xbmcgui.Dialog().notification('Sky Go: Jugendschutz', 'Fehlerhafte PIN', xbmcgui.NOTIFICATION_ERROR, 2000, True)
 
@@ -133,7 +139,7 @@ class Navigation:
 
 
     def getPoster(self, data):
-        if 'name' in data and self.addon.getSetting('enable_customlogos') == 'true':
+        if 'name' in data and self.customlogos == 'true':
             img = self.getLocalChannelLogo(data['name'])
             if img:
                 return img
@@ -153,24 +159,23 @@ class Navigation:
     def getChannelLogo(self, data):
         logopath = ''
         if 'channelLogo' in data:
-            basepath = data['channelLogo']['basepath'] + '/'
+            basepath = '{0}/'.format(data['channelLogo']['basepath'])
             size = 0
             for logo in data['channelLogo']['logos']:
                 logosize = logo['size'][:logo['size'].find('x')]
                 if int(logosize) > size:
                     size = int(logosize)
-                    logopath = self.skygo.baseUrl + basepath + logo['imageFile'] + '|User-Agent=' + self.skygo.user_agent
+                    logopath = '{0}{1}{2}|User-Agent={3}'.format(self.skygo.baseUrl, basepath, logo['imageFile'], self.skygo.user_agent)
         return logopath
 
 
     def getLocalChannelLogo(self, channel_name):
-        logo_path = self.addon.getSetting('logoPath')
-        if not logo_path == '' and xbmcvfs.exists(logo_path):
-            dirs, files = xbmcvfs.listdir(logo_path)
+        if self.logopath != '' and xbmcvfs.exists(self.logopath):
+            dirs, files = xbmcvfs.listdir(self.logopath)
             for f in files:
                 if f.lower().endswith('.png'):
                     if channel_name.lower().replace(' ', '') == os.path.basename(f).lower().replace('.png', '').replace(' ', ''):
-                        return os.path.join(logo_path, f)
+                        return os.path.join(self.logopath, f)
 
         return None
 
@@ -201,7 +206,7 @@ class Navigation:
 
             self.listAssets(listitems)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def listLiveTvChannelDirs(self):
@@ -210,9 +215,9 @@ class Navigation:
             url = self.common.build_url({'action': 'listLiveTvChannels', 'channeldir_name': channel})
             li = xbmcgui.ListItem(label=channel.title())
             li.setArt({'icon': self.icon_file, 'thumb': self.icon_file})
-            xbmcplugin.addDirectoryItem(handle=self.skygo.addon_handle, url=url, listitem=li, isFolder=True)
+            xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def listLiveTvChannels(self, channeldir_name):
@@ -222,7 +227,7 @@ class Navigation:
                 details = self.getLiveChannelDetails(tab.get('eventList'), None)
                 self.listAssets(sorted(details.values(), key=lambda k:k['data']['channel']['name']))
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=False)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=False)
 
 
     def getlistLiveChannelData(self, channel=None):
@@ -291,14 +296,14 @@ class Navigation:
                 manifest_url = event['channel']['msMediaUrl']
                 url = self.common.build_url({'action': 'playLive', 'manifest_url': manifest_url, 'package_code': event['channel']['mobilepc']})
             elif not s_manifest_url and event.get('event').get('assetid'):
-                if self.extMediaInfos and self.extMediaInfos == 'true':
+                if self.extMediaInfos == 'true':
                     mediainfo = self.getAssetDetailsFromCache(event['event']['assetid'])
                     if len(mediainfo) > 0:
                         event['mediainfo'] = mediainfo
 
                 url = self.common.build_url({'action': 'playVod', 'vod_id': event['event']['assetid']})
 
-            if not event.get('mediainfo') and self.extMediaInfos and self.extMediaInfos == 'true':
+            if not event.get('mediainfo') and self.extMediaInfos == 'true':
                 assetid_match = re.search('\/(\d+)\.html', event['event']['detailPage'])
                 if assetid_match:
                     assetid = 0
@@ -353,7 +358,7 @@ class Navigation:
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = r.json()['serieRecap']['serie']
-            xbmcplugin.setContent(self.skygo.addon_handle, 'episodes')
+            xbmcplugin.setContent(self.common.addon_handle, 'episodes')
             for season in data['seasons']['season']:
                 if str(season['id']) == str(season_id):
                     for episode in season['episodes']['episode']:
@@ -379,11 +384,11 @@ class Navigation:
                                 'thumb': self.skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + self.skygo.user_agent}
                         li.setArt(art)
                         url = self.common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
-                        xbmcplugin.addDirectoryItem(handle=self.skygo.addon_handle, url=url, listitem=li, isFolder=False)
+                        xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=False)
 
-            xbmcplugin.addSortMethod(self.skygo.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_EPISODE)
+            xbmcplugin.addSortMethod(self.common.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_EPISODE)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def listSeasonsFromSeries(self, series_id):
@@ -391,7 +396,7 @@ class Navigation:
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = r.json()['serieRecap']['serie']
-            xbmcplugin.setContent(self.skygo.addon_handle, 'tvshows')
+            xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
             for season in data['seasons']['season']:
                 url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
                 label = '%s - Staffel %02d' % (data['title'], season['nr'])
@@ -405,9 +410,9 @@ class Navigation:
                     ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
                     self.getWatchlistContextItem({'type': 'Episode', 'data': season})
                 ], replaceItems=False)
-                xbmcplugin.addDirectoryItem(handle=self.skygo.addon_handle, url=url, listitem=li, isFolder=True)
+                xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def getAssets(self, data, key='asset_type'):
@@ -519,7 +524,7 @@ class Navigation:
         data = item_data
         if data.get('mediainfo'):
             data = data.get('mediainfo')
-        elif data.get('id') and self.extMediaInfos and self.extMediaInfos == 'true':
+        elif data.get('id') and self.extMediaInfos == 'true':
             asset = self.getAssetDetailsFromCache(data.get('id'))
             if len(asset) > 0:
                 data = asset
@@ -596,14 +601,14 @@ class Navigation:
                     asset_type = 'Episode'
                     info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
                     info['title'] = '[COLOR blue]{0}[/COLOR] {1}'.format(data.get('serie_title', ''), data.get('title', ''))
-            if self.addon.getSetting('channel_name_first') == 'true':
+            if self.channel_name_first == 'true':
                 item_data['li_label'] = '[COLOR orange]{0}[/COLOR] {1}'.format(item_data['channel']['name'], info['title'])
             else:
                 item_data['li_label'] = '{0} [COLOR orange]{1}[/COLOR]'.format(info['title'], item_data['channel']['name'])
 
             info['plot'] = '{0} - {1}\n\n{2}'.format(item_data.get('event').get('startTime'), item_data.get('event').get('endTime'), info['plot'])
         if asset_type == 'searchresult':
-            if self.extMediaInfos and self.extMediaInfos == 'false':
+            if self.extMediaInfos == 'false':
                 info['plot'] = data.get('description', '')
                 info['year'] = data.get('year', '')
                 info['genre'] = data.get('category', '')
@@ -616,7 +621,7 @@ class Navigation:
                 item_data['li_label'] = '{0:01d}x{1:02d}. {2}'.format(data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
         if asset_type == 'Film':
             info['mediatype'] = 'movie'
-            if self.addon.getSetting('lookup_tmdb_data') == 'true' and not data.get('title', '') == '':
+            if self.lookup_tmdb_data == 'true' and not data.get('title', '') == '':
                 title = py2_encode(data.get('title', ''))
                 xbmc.log(py2_encode('Searching Rating and better Poster for "{0}" at tmdb.com').format(title))
                 if data.get('year_of_production', '') != '':
@@ -627,7 +632,6 @@ class Navigation:
                 if len(TMDb_Data) > 0:
                     if TMDb_Data.get('rating'):
                         info['rating'] = TMDb_Data['rating']
-                        info['plot'] = 'User-Rating: {0} / 10 (from TMDb) \n\n{1}'.format(info['rating'], info['plot'])
                         xbmc.log("Result of get Rating: {0}".format(TMDb_Data['rating']))
                     if TMDb_Data.get('poster_path'):
                         item_data['TMDb_poster_path'] = TMDb_Data['poster_path']
@@ -688,20 +692,20 @@ class Navigation:
                 #    li = self.addStreamInfo(li, item['data'])
 
             if item['type'] in ['Film']:
-                xbmcplugin.setContent(self.skygo.addon_handle, 'movies')
+                xbmcplugin.setContent(self.common.addon_handle, 'movies')
             elif item['type'] in ['Series', 'Season']:
-                xbmcplugin.setContent(self.skygo.addon_handle, 'tvshows')
+                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
                 isPlayable = False
             elif item['type'] in ['Episode']:
-                xbmcplugin.setContent(self.skygo.addon_handle, 'episodes')
+                xbmcplugin.setContent(self.common.addon_handle, 'episodes')
             elif item['type'] in ['Sport', 'Clip']:
-                xbmcplugin.setContent(self.skygo.addon_handle, 'files')
+                xbmcplugin.setContent(self.common.addon_handle, 'files')
             elif item['type'] == 'searchresult':
-                xbmcplugin.setContent(self.skygo.addon_handle, 'movies')
+                xbmcplugin.setContent(self.common.addon_handle, 'movies')
             elif item['type'] == 'live':
-                xbmcplugin.setContent(self.skygo.addon_handle, 'files')
+                xbmcplugin.setContent(self.common.addon_handle, 'files')
                 if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
-                    xbmcplugin.setContent(self.skygo.addon_handle, 'movies')
+                    xbmcplugin.setContent(self.common.addon_handle, 'movies')
 
             contextmenuitems = []
             if item['type'] in ['Film', 'Series', 'Season', 'Episode', 'live']:
@@ -728,7 +732,7 @@ class Navigation:
             params.update(additional_params)
             url = self.common.build_url(params)
 
-            xbmcplugin.addDirectoryItem(handle=self.skygo.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
+            xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
 
 
     def listPath(self, path):
@@ -738,7 +742,7 @@ class Navigation:
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             page = r.json()
         else:
-            xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+            xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
             return False
         if 'sort_by_lexic_p' in path:
             url = self.common.build_url({'action': 'listPage', 'path': path[0:path.index('sort_by_lexic_p')] + 'header.json'})
@@ -747,7 +751,7 @@ class Navigation:
         listitems = self.parseListing(page, path)
         self.listAssets(listitems)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def getPageItems(self, nodes, page_id):
@@ -785,7 +789,7 @@ class Navigation:
 
             self.addDir(item.attrib['label'], url)
 
-        xbmcplugin.endOfDirectory(self.skygo.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def getAssetDetailsFromCache(self, asset_id):
@@ -804,7 +808,6 @@ class Navigation:
         splitter = [' - ', ': ', ', ']
         tmdb_api = base64.b64decode('YTAwYzUzOTU0M2JlMGIwODE4YmMxOTRhN2JkOTVlYTU=')  # ApiKey Linkinsoldier
         lang = 'de'
-        # str_year = year if year else ''
         title = re.sub('(\(.*\))', '', title).strip()
 
         if attempt > 3:
@@ -840,9 +843,9 @@ class Navigation:
                 attempt += 1
                 xbmc.log(py2_encode('Try again - without release year - to find Title: {0}').format(title))
                 return self.getTMDBData(title, None, attempt)
-            elif py2_decode(title).find('-') > -1:
+            elif title.find(py2_encode('-')) > -1:
                 attempt += 1
-                title = title.split('-')[0].strip()
+                title = title.split(py2_encode('-'))[0].strip()
                 xbmc.log(py2_encode('Try again - find Title: {0}').format(title))
                 return self.getTMDBData(title, None, attempt)
             else:
@@ -853,8 +856,8 @@ class Navigation:
 
             if '429' or 'timed out' in e:
                 attempt += 1
-                xbmc.log('Attempt #{0} - Too many requests - Pause 5 sec'.format(attempt))
-                xbmc.sleep(5000)
+                xbmc.log('Attempt #{0} - Too many requests - Pause 1 sec'.format(attempt))
+                xbmc.sleep(1000)
                 if attempt < 4:
                     return self.getTMDBData(title, year, attempt)
 
@@ -894,7 +897,7 @@ class Navigation:
         if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
             art.update({'poster': self.getPoster(item['data']), 'fanart': self.getHeroImage(item['data'])})
         if item['type'] in ['Film']:
-            if self.addon.getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
+            if self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
                 poster_path = item['data']['TMDb_poster_path']
             else:
                 poster_path = self.getPoster(item['data'])
@@ -905,14 +908,14 @@ class Navigation:
             if item.get('data').get('current_type', '') == 'Live':
                 art.update({'poster': thumb})
         elif item['type'] == 'searchresult':
-            if self.addon.getSetting('lookup_tmdb_data') == 'true' and 'TMDb_poster_path' in item['data']:
+            if self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
                 poster_path = item['data']['TMDb_poster_path']
             else:
                 poster_path = self.getPoster(item['data'])
             art.update({'poster': poster_path})
         elif item['type'] == 'live':
-            poster = self.skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.getChannelLogo(item['data']['channel'])
-            fanart = self.skygo.baseUrl + item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.skygo.baseUrl + '/bin/Picture/817/C_1_Picture_7179_content_4.jpg'
+            poster = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.getChannelLogo(item['data']['channel']))
+            fanart = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else '{0}/bin/Picture/817/C_1_Picture_7179_content_4.jpg'.format(self.skygo.baseUrl))
             thumb = poster
 
             if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
@@ -921,8 +924,8 @@ class Navigation:
                 else:
                     poster = self.getPoster(item['data']['mediainfo'])
                 thumb = poster
-                xbmcplugin.setContent(self.skygo.addon_handle, 'movies')
+                xbmcplugin.setContent(self.common.addon_handle, 'movies')
 
-            art.update({'poster':  poster + '|User-Agent=' + self.skygo.user_agent, 'fanart': fanart + '|User-Agent=' + self.skygo.user_agent, 'thumb': thumb + '|User-Agent=' + self.skygo.user_agent})
+            art.update({'poster':  '{0}|User-Agent={1}'.format(poster, self.skygo.user_agent), 'fanart': '{0}|User-Agent={1}'.format(fanart, self.skygo.user_agent), 'thumb': '{0}|User-Agent={1}'.format(thumb, self.skygo.user_agent)})
 
         return art

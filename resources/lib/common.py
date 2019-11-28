@@ -10,20 +10,29 @@ try:
 except:
     import urllib
 
-base_url = "plugin://" + xbmcaddon.Addon().getAddonInfo('id')
+
+class Common:
 
 
-def build_url(query):
-    query.update({'zz': ''})
-    query = OrderedDict(query.items())
-    return base_url + '?' + urllib.urlencode(query)
+    def __init__(self, addon, addon_handle):
+
+        self.addon = addon
+        self.addon_handle = addon_handle
+
+        self.base_url = 'plugin://{0}'.format(self.addon.getAddonInfo('id'))
 
 
-def getDictFromString(str):
-    return ast.literal_eval(str) if str else None
+    def build_url(self, query):
+        query.update({'zz': ''})
+        query = OrderedDict(query.items())
+        return '{0}?{1}'.format(self.base_url, urllib.urlencode(query))
 
 
-def get_dict_value(dict, key):
-    key = key.lower()
-    result = [dict[k] for k in dict if k.lower() == key]
-    return result[0] if len(result) > 0 else ''
+    def getDictFromString(self, str):
+        return ast.literal_eval(str) if str else None
+
+
+    def get_dict_value(self, dict, key):
+        key = key.lower()
+        result = [dict[k] for k in dict if k.lower() == key]
+        return result[0] if len(result) > 0 else ''

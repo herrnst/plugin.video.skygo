@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.8" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.9" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.3.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -27,7 +27,7 @@
 		<website></website>
 		<email></email>
 		<source></source>
-		<news>1.13.8[CR]- Encoding-/Decoding-Fehler behoben[CR][CR]1.13.7[CR]- Caching-Fehler behoben, wenn keine Daten von der API abgerufen werden konnten[CR]- Kompabilität zu Python 3</news>
+		<news>1.13.9[CR]- Refactoring[CR]- Weitere Encoding-/Decoding-Fehler behoben[CR][CR]1.13.8[CR]- Encoding-/Decoding-Fehler behoben[CR][CR]1.13.7[CR]- Caching-Fehler behoben, wenn keine Daten von der API abgerufen werden konnten[CR]- Kompabilität zu Python 3</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>

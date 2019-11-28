@@ -20,26 +20,38 @@ import xbmcgui
 import xbmcplugin
 from inputstreamhelper import Helper
 
+try:
+    import urllib.parse as urllib
+except:
+    import urllib
+
 
 class SkyGo:
     """Sky Go Class"""
 
     baseUrl = "https://skyticket.sky.de"
     baseServicePath = '/st'
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36'
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36'
     sessionId = ''
     LOGIN_STATUS = {'SUCCESS': 'T_100', 'SESSION_INVALID': 'S_218', 'OTHER_SESSION':'T_206'}
     entitlements = []
 
 
-    def __init__(self, addon_handle, addon, common):
+    def __init__(self, common):
 
-        self.addon_handle = addon_handle
-        self.addon = addon
         self.common = common
 
-        datapath = xbmc.translatePath(self.addon.getAddonInfo('profile'))
+        datapath = xbmc.translatePath(self.common.addon.getAddonInfo('profile'))
         self.cookiePath = '{0}COOKIES'.format(datapath)
+
+        self.android_deviceid = self.common.addon.getSetting('android_deviceid')
+        self.android_drm_widevine = self.common.addon.getSetting('android_drm_widevine')
+
+        self.autoKillSession = self.common.addon.getSetting('autoKillSession')
+        self.js_askforpin = self.common.addon.getSetting('js_askforpin')
+        self.js_maxrating = self.common.addon.getSetting('js_maxrating')
+        self.password = self.common.addon.getSetting('password')
+        self.username = self.common.addon.getSetting('email')
 
         platform_props = self.getPlatformProps()
         self.platform = platform_props.get('platform')
@@ -103,8 +115,8 @@ class SkyGo:
 
     def login(self, username=None, password=None, forceLogin=False, askKillSession=True):
         if not username and not password:
-            username = self.addon.getSetting('email')
-            password = self.addon.getSetting('password')
+            username = self.username
+            password = self.password
 
         # If already logged in and active session everything is fine
         if forceLogin or not self.isLoggedIn():
@@ -115,7 +127,7 @@ class SkyGo:
             # if login is correct but other session is active ask user if other session should be killed - T_227=SkyGoExtra
             if response['resultCode'] in ['T_206', 'T_227']:
                 kill_session = False
-                if self.addon.getSetting('autoKillSession') == 'true' or askKillSession == False:
+                if self.autoKillSession == 'true' or askKillSession == False:
                     kill_session = True
 
                 if not kill_session:
@@ -150,22 +162,22 @@ class SkyGo:
 
 
     def setLogin(self):
-        keyboard = xbmc.Keyboard(self.addon.getSetting('email'), 'Kundennummer / E-Mail-Adresse')
+        keyboard = xbmc.Keyboard(self.username, 'Kundennummer / E-Mail-Adresse')
         keyboard.doModal()
         if keyboard.isConfirmed() and keyboard.getText():
             email = keyboard.getText()
             password = self.setLoginPW()
             if password != '':
-                self.addon.setSetting('email', email)
+                self.common.addon.setSetting('email', email)
                 password = self.encode(password)
 
                 if self.login(email, password, forceLogin=True, askKillSession=False):
-                    self.addon.setSetting('password', password)
-                    self.addon.setSetting('login_acc', email)
+                    self.common.addon.setSetting('password', password)
+                    self.common.addon.setSetting('login_acc', email)
                     xbmcgui.Dialog().notification('Sky Go: Login', 'Angemeldet als "{0}".'.format(email), icon=xbmcgui.NOTIFICATION_INFO)
                 else:
-                    self.addon.setSetting('password', '')
-                    self.addon.setSetting('login_acc', '')
+                    self.common.addon.setSetting('password', '')
+                    self.common.addon.setSetting('login_acc', '')
 
 
     def setLoginPW(self):
@@ -283,8 +295,8 @@ class SkyGo:
         if parental_rating == 0:
             return True
 
-        ask_pin = self.addon.getSetting('js_askforpin')
-        max_rating = self.addon.getSetting('js_maxrating')
+        ask_pin = self.js_askforpin
+        max_rating = self.js_maxrating
         if max_rating.isdigit():
             if int(max_rating) < 0:
                 return True
@@ -305,20 +317,24 @@ class SkyGo:
     def getPlatformProps(self):
         props = {}
 
-        if xbmc.getCondVisibility('system.platform.android') and self.addon.getSetting('android_drm_widevine') == 'false':
+        if xbmc.getCondVisibility('system.platform.android') and self.android_drm_widevine == 'false':
             props.update({'license_type': 'com.microsoft.playready'})
 
             android_deviceid = None
-            if self.addon.getSetting('android_deviceid'):
-                android_deviceid = self.addon.getSetting('android_deviceid')
+            if self.android_deviceid:
+                android_deviceid = self.android_deviceid
             else:
                 android_deviceid = str(uuid.uuid1())
-                self.addon.setSetting('android_deviceid', android_deviceid)
+                self.common.addon.setSetting('android_deviceid', android_deviceid)
 
             props.update({'android_deviceid': android_deviceid})
         else:
             props.update({'license_type': 'com.widevine.alpha'})
-            props.update({'license_url': 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser|User-Agent=Mozilla%2F5.0%20(X11%3B%20Linux%20x86_64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20Chrome%2F49.0.2623.87%20Safari%2F537.36&Referer=http%3A%2F%2Fwww.skygo.sky.de%2Ffilm%2Fscifi--fantasy%2Fjupiter-ascending%2Fasset%2Ffilmsection%2F144836.html&Content-Type=|R{SSM}|'})
+            props.update({'license_url': 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser' \
+                '|User-Agent={0}' \
+                '&Referer={1}&Content-Type=|R{2}|' \
+                .format(urllib.quote(self.user_agent), 'https://www.skygo.sky.de/film/scifi--fantasy/jupiter-ascending/asset/filmsection/144836.html', '{SSM}')
+            })
 
         return props
 
@@ -357,7 +373,7 @@ class SkyGo:
                         li.setProperty('inputstream.adaptive.license_data', init_data)
 
                     # Start Playing
-                    xbmcplugin.setResolvedUrl(self.addon_handle, True, li)
+                    xbmcplugin.setResolvedUrl(self.common.addon_handle, True, li)
                     return
                 else:
                     xbmcgui.Dialog().notification('Sky Go: Berechtigung', 'Keine Berechtigung zum Abspielen dieses Eintrags', xbmcgui.NOTIFICATION_ERROR, 2000, True)
@@ -367,4 +383,4 @@ class SkyGo:
             else:
                 xbmc.log('[Sky Go] Fehler beim Login')
 
-        xbmcplugin.setResolvedUrl(self.addon_handle, False, xbmcgui.ListItem())
+        xbmcplugin.setResolvedUrl(self.common.addon_handle, False, xbmcgui.ListItem())

@@ -1,3 +1,6 @@
+1.13.9
+- Refactoring
+- Weitere Encoding-/Decoding-Fehler behoben
 1.13.8
 - Encoding-/Decoding-Fehler behoben
 1.13.7
