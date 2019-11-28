@@ -12,6 +12,11 @@ import re
 import base64
 
 try:
+    import StorageServer
+except:
+    import storageserverdummy as StorageServer
+
+try:
     import urllib.parse as urlparse
     import urllib.parse as urllib
     from urllib.request import build_opener, urlopen
@@ -48,16 +53,9 @@ class Navigation:
         # Jugendschutz
 
         # Doc for Caching Function: http://kodi.wiki/index.php?title=Add-on:Common_plugin_cache
-        if self.extMediaInfos == 'true' or self.lookup_tmdb_data == 'true':
-            try:
-                import StorageServer
-            except:
-                import storageserverdummy as StorageServer
-
-            if self.extMediaInfos == 'true':
-                self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.common.addon.getAddonInfo('name')), 24 * 30)
-            if self.lookup_tmdb_data == 'true':
-                self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.common.addon.getAddonInfo('name')), 24 * 30)
+        self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.common.addon.getAddonInfo('name')), 24 * 30)
+        if self.lookup_tmdb_data == 'true':
+            self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.common.addon.getAddonInfo('name')), 24 * 30)
 
 
     def getNav(self):

@@ -1,3 +1,5 @@
+1.13.10
+- Fehler mit dem Asset-Caching behoben
 1.13.9
 - Refactoring
 - Weitere Encoding-/Decoding-Fehler behoben
