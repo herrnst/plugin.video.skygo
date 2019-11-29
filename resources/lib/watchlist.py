@@ -43,7 +43,7 @@ class Watchlist:
         if data.get('watchlist'):
             for item in data.get('watchlist'):
                 if item.get('assetId'):
-                    asset = self.skygo.getAssetDetails(item.get('assetId'))
+                    asset = self.nav.getAssetDetailsFromCache(item.get('assetId'))
                     if len(asset) > 0:
                         for asset_details in self.nav.getAssets([asset]):
                             listitems.append(asset_details)

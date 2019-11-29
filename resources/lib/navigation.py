@@ -115,7 +115,7 @@ class Navigation:
                 else:
                     self.common.addon.setSetting('js_maxrating', fsk_list[idx])
             if idx > 0:
-                if dlg.yesno('Jugendschutz', 'Sollen Inhalte mit einer Alterseinstufung über ', 'FSK ' + fsk_list[idx] + ' angezeigt werden?'):
+                if dlg.yesno('Jugendschutz', 'Sollen Inhalte mit einer Alterseinstufung über ', 'FSK {0} angezeigt werden?'.format(fsk_list[idx])):
                     self.common.addon.setSetting('js_showall', 'true')
                 else:
                     self.common.addon.setSetting('js_showall', 'false')
@@ -127,11 +127,11 @@ class Navigation:
         if 'main_picture' in data:
             for pic in data['main_picture']['picture']:
                 if pic['type'] == 'hero_img':
-                    return self.skygo.baseUrl + pic['path'] + '/' + pic['file'] + '|User-Agent=' + self.skygo.user_agent
+                    return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, pic['path'], pic['file'], self.skygo.user_agent)
         if 'item_image' in data:
-            return self.skygo.baseUrl + data['item_image'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_image'], self.skygo.user_agent)
         if 'picture' in data:
-            return self.skygo.baseUrl + data['picture'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
 
         return ''
 
@@ -143,13 +143,13 @@ class Navigation:
                 return img
 
         if data.get('dvd_cover', '') != '':
-            return self.skygo.baseUrl + data['dvd_cover']['path'] + '/' + data['dvd_cover']['file'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, data['dvd_cover']['path'], data['dvd_cover']['file'], self.skygo.user_agent)
         if data.get('item_preview_image', '') != '':
-            return self.skygo.baseUrl + data['item_preview_image'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_preview_image'], self.skygo.user_agent)
         if data.get('picture', '') != '':
-            return self.skygo.baseUrl + data['picture'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
         if data.get('logo', '') != '':
-            return self.skygo.baseUrl + data['logo'] + '|User-Agent=' + self.skygo.user_agent
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['logo'], self.skygo.user_agent)
 
         return ''
 
@@ -230,7 +230,7 @@ class Navigation:
 
     def getlistLiveChannelData(self, channel=None):
         data = {}
-        r = self.skygo.session.get(self.skygo.baseUrl + '/epgd' + self.skygo.baseServicePath + '/ipad/excerpt/')
+        r = self.skygo.session.get('{0}/epgd{1}/ipad/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = r.json()
             for tab in data:
@@ -252,7 +252,7 @@ class Navigation:
 
                         channel_list.append(event['channel']['name'])
 
-                r = self.skygo.session.get(self.skygo.baseUrl + '/epgd' + self.skygo.baseServicePath + '/web/excerpt/')
+                r = self.skygo.session.get('{0}/epgd{1}/web/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
                     data_web = r.json()
                     data_web = [json for json in data_web if json['tabName'].lower() == channel.lower()]
@@ -352,7 +352,7 @@ class Navigation:
 
 
     def listEpisodesFromSeason(self, series_id, season_id):
-        url = self.skygo.baseUrl + self.skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
+        url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = r.json()['serieRecap']['serie']
@@ -377,9 +377,9 @@ class Navigation:
                         li.setInfo('video', info)
                         li.setLabel(episode.get('li_label') if episode.get('li_label', None) else info['title'])
                         # li = self.addStreamInfo(li, episode)
-                        art = {'poster': self.skygo.baseUrl + season['path'] + '|User-Agent=' + self.skygo.user_agent,
+                        art = {'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
                                 'fanart': self.getHeroImage(data),
-                                'thumb': self.skygo.baseUrl + episode['webplayer_config']['assetThumbnail'] + '|User-Agent=' + self.skygo.user_agent}
+                                'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, episode['webplayer_config']['assetThumbnail'], self.skygo.user_agent)}
                         li.setArt(art)
                         url = self.common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
                         xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=False)
@@ -390,17 +390,17 @@ class Navigation:
 
 
     def listSeasonsFromSeries(self, series_id):
-        url = self.skygo.baseUrl + self.skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(series_id) + '_global.json'
+        url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = r.json()['serieRecap']['serie']
             xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
             for season in data['seasons']['season']:
                 url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
-                label = '%s - Staffel %02d' % (data['title'], season['nr'])
+                label = '{0} - Staffel {1:02d}'.format(data['title'], season['nr'])
                 li = xbmcgui.ListItem(label=label)
                 li.setProperty('IsPlayable', 'false')
-                li.setArt({'poster': self.skygo.baseUrl + season['path'] + '|User-Agent=' + self.skygo.user_agent,
+                li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
                            'fanart': self.getHeroImage(data),
                            'thumb': self.icon_file})
                 li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
@@ -426,7 +426,7 @@ class Navigation:
                 url = self.common.build_url({'action': 'listSeries', 'id': asset['id']})
                 asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
             elif asset[key].lower() == 'season':
-                url = self.skygo.baseUrl + self.skygo.baseServicePath + '/multiplatform/web/json/details/series/' + str(asset['serie_id']) + '_global.json'
+                url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, asset['serie_id'])
                 r = self.skygo.session.get(url)
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
                     serie = r.json()['serieRecap']['serie']
@@ -455,7 +455,7 @@ class Navigation:
         if 'letters' in page:
             for item in page['letters']['letter']:
                 if item['linkable'] is True:
-                    url = self.common.build_url({'action': 'listPage', 'path': path.replace('header', str(item['content']) + '_p1')})
+                    url = self.common.build_url({'action': 'listPage', 'path': path.replace('header', '{0}_p1'.format(item['content']))})
                     listitems.append({'type': 'path', 'label': str(item['content']), 'url': url})
         elif 'listing' in page:
             if 'isPaginated' in page['listing']:
@@ -486,7 +486,7 @@ class Navigation:
                         self.listPath(page['listing']['listing']['item']['path'])
 
         if curr_page < page_count:
-            url = self.common.build_url({'action': 'listPage', 'path': path.replace('_p' + str(curr_page), '_p' + str(curr_page + 1))})
+            url = self.common.build_url({'action': 'listPage', 'path': path.replace('_p{0}'.format(curr_page), '_p{0}'.format((curr_page + 1)))})
             listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
 
         return listitems
@@ -498,22 +498,22 @@ class Navigation:
         if event_info != '':
             now = datetime.datetime.now()
 
-            strStartTime = '%s %s' % (event_info['start_date'], event_info['start_time'])
-            strEndTime = '%s %s' % (event_info['end_date'], event_info['end_time'])
-            start_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strStartTime, "%Y/%m/%d %H:%M")))
-            end_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strEndTime, "%Y/%m/%d %H:%M")))
+            strStartTime = '{0} {1}'.format(event_info['start_date'], event_info['start_time'])
+            strEndTime = '{0} {1}'.format(event_info['end_date'], event_info['end_time'])
+            start_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strStartTime, '%Y/%m/%d %H:%M')))
+            end_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strEndTime, '%Y/%m/%d %H:%M')))
 
             if (now >= start_time) and (now <= end_time):
-                tag = '[COLOR red][Live][/COLOR]'
+                tag = '[COLOR red]Live[/COLOR]'
             elif start_time.date() == datetime.datetime.today().date():
-                tag = '[COLOR blue][Heute ' + event_info['start_time'] + '][/COLOR]'
+                tag = '[COLOR blue]Heute {0}[/COLOR]'.format(event_info['start_time'])
             elif start_time.date() == (datetime.datetime.today() + datetime.timedelta(days=1)).date():
-                tag = '[COLOR blue][Morgen ' + event_info['start_time'] + '][/COLOR]'
+                tag = '[COLOR blue]Morgen {0}[/COLOR]'.format(event_info['start_time'])
             else:
                 day = start_time.strftime('%A')
                 if not day in dayDict.values():
                     day = day.replace(day, dayDict[day])[0:2]
-                tag = '[COLOR blue][' + day + ', ' + start_time.strftime("%d.%m %H:%M]") + '[/COLOR]'
+                tag = '[COLOR blue]{0}, {1}[/COLOR]'.format(day, start_time.strftime('%d.%m %H:%M'))
 
         return tag
 
@@ -568,7 +568,7 @@ class Navigation:
 
         if asset_type == 'Sport' and data.get('current_type', '') == 'Live':
             # LivePlanner listing
-            info['title'] = self.buildLiveEventTag(data['technical_event']['on_air']) + ' ' + info['title']
+            info['title'] = '{0} {1}'.format(self.buildLiveEventTag(data['technical_event']['on_air']), info['title'])
             info['plot'] = data.get('title', '')
         if asset_type == 'Clip':
             info['title'] = data['item_title']
@@ -665,7 +665,7 @@ class Navigation:
             ids.append(str(item['data']['id']))
 
         url = self.common.build_url({'action': action, 'id': ','.join(ids), 'assetType': asset_type})
-        return (label, 'RunPlugin(' + url + ')')
+        return (label, 'RunPlugin({0})'.format(url))
 
 
     def listAssets(self, asset_list, isWatchlist=False):
@@ -736,14 +736,14 @@ class Navigation:
     def listPath(self, path):
         page = {}
         path = path.replace('ipad', 'web')
-        r = self.skygo.session.get(self.skygo.baseUrl + path)
+        r = self.skygo.session.get('{0}{1}'.format(self.skygo.baseUrl, path))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             page = r.json()
         else:
             xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
             return False
         if 'sort_by_lexic_p' in path:
-            url = self.common.build_url({'action': 'listPage', 'path': path[0:path.index('sort_by_lexic_p')] + 'header.json'})
+            url = self.common.build_url({'action': 'listPage', 'path': '{0}header.json'.format(path[0:path.index('sort_by_lexic_p')])})
             self.addDir('[A-Z]', url)
 
         listitems = self.parseListing(page, path)
@@ -881,12 +881,10 @@ class Navigation:
 
 
     def clearCache(self):
-        try:
-            self.assetDetailsCache.delete("%")
-            self.TMDBCache.delete("%")
-            xbmcgui.Dialog().notification('Sky Go: Cache', 'Leeren des Caches erfolgreich', xbmcgui.NOTIFICATION_INFO, 2000, True)
-        except:
-            xbmcgui.Dialog().notification('Sky Go: Cache', 'Leeren des Caches fehlgeschlagen', xbmcgui.NOTIFICATION_ERROR, 2000, True)
+        self.assetDetailsCache.delete('%')
+        if hasattr(self, 'TMDBCache'):
+            self.TMDBCache.delete('%')
+        xbmcgui.Dialog().notification('Sky Go: Cache', 'Leeren des Caches erfolgreich', xbmcgui.NOTIFICATION_INFO, 2000, True)
 
 
     def getArt(self, item):

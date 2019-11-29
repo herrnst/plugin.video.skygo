@@ -33,7 +33,7 @@ def run(argv):
     # Router for all plugin actions
     if 'action' in params:
 
-        xbmc.log('[Sky Go] params = %s' % params)
+        xbmc.log('[Sky Go] params = {0}'.format(params))
 
         if params['action'] == 'playVod':
             vod.playAsset(params['vod_id'], infolabels=common.getDictFromString(params.get('infolabels', None)), art=common.getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))

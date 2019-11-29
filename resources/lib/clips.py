@@ -24,7 +24,7 @@ class Clips:
         if content == 'ENTITLED USER' or content == 'SUBSCRIBED USER':
             clipType = 'NOTFREE'
         timestamp = str(time.time()).replace('.', '')
-        url = 'https://www.skygo.sky.de/SILK/services/public/clipToken?clipType=' + clipType + '&product=SG&platform=web&version=12354=&_' + timestamp
+        url = 'https://www.skygo.sky.de/SILK/services/public/clipToken?clipType={0}&product=SG&platform=web&version=12354=&_{1}'.format(clipType, timestamp)
         r = self.skygo.session.get(url)
         if common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             return json.loads(r.text[3:len(r.text) - 1])
@@ -36,13 +36,13 @@ class Clips:
         # pyCrypto
         # dec = AES.new(self.aes_key[0].decode('hex'), AES.MODE_CBC, self.aes_key[1].decode('hex'))
         # path = dec.decrypt(base64.b64decode(token['tokenValue']))
-        # query = token['tokenName'] + '=' + path2[0:len(path2)-7]
+        # query = '{0}={1}'.format(token['tokenName'], path2[0:len(path2)-7])
         #
         # cryptopy
         dec = aes_cbc.AES_CBC(key=self.aes_key[0].decode('hex'), keySize=16)
         path = dec.decrypt(base64.b64decode(token['tokenValue']), iv=self.aes_key[1].decode('hex'))
-        query = token['tokenName'] + '=' + path
-        return url + '?' + query
+        query = '{0}={1}'.format(token['tokenName'], path)
+        return '{0}?{1}'.format(url, query)
 
 
     def playClip(self, clip_id):

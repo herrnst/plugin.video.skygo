@@ -1,3 +1,5 @@
+1.13.11
+- Fehler beim Leeren des Caches behoben
 1.13.10
 - Fehler mit dem Asset-Caching behoben
 1.13.9

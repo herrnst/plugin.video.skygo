@@ -215,7 +215,7 @@ class SkyGo:
 
         # If no url is given we assume that the url hast to be build with the id
         if url == '':
-            url = self.baseUrl + self.baseServicePath + "/multiplatform/web/xml/player_playlist/asset/" + str(id) + ".xml"
+            url = '{0}{1}/multiplatform/web/xml/player_playlist/asset/{2}.xml'.format(self.baseUrl, self.baseServicePath, id)
 
         r = requests.get(url)
         tree = ET.ElementTree(ET.fromstring(r.text))
@@ -230,7 +230,7 @@ class SkyGo:
     def getCurrentEvent(self, epg_channel_id):
         # Save date for fure use
         now = datetime.datetime.now()
-        current_date = now.strftime("%d.%m.%Y")
+        current_date = now.strftime('%d.%m.%Y')
         # Get Epg information
         xbmc.log('[Sky Go]  eventlisturl = {0}/epgd{1}/web/eventList/{2}/{3}/'.format(self.baseUrl, self.baseServicePath, current_date, epg_channel_id))
         r = requests.get('{0}/epgd{1}/web/eventList/{2}/{3}/'.format(self.baseUrl, self.baseServicePath, current_date, epg_channel_id))
@@ -256,7 +256,7 @@ class SkyGo:
             playlist_id = m.group(1)
             playinfo_url = '{0}{1}/multiplatform/web/xml/player_playlist/asset/{2}.xml'.format(self.baseUrl, self.baseServicePath, playlist_id)
         else:
-            playinfo_url = '{0}{1}/multiplatform/web/xml/player_playlist/ssn/127.xml'.format(self.baseUrl + self.baseServicePath)
+            playinfo_url = '{0}{1}/multiplatform/web/xml/player_playlist/ssn/127.xml'.format(self.baseUrl, self.baseServicePath)
 
         return self.getPlayInfo(url=playinfo_url)
 
