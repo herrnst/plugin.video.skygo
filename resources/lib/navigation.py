@@ -803,10 +803,9 @@ class Navigation:
         rating = None
         poster_path = None
         tmdb_id = None
-        splitter = [' - ', ': ', ', ']
         tmdb_api = base64.b64decode('YTAwYzUzOTU0M2JlMGIwODE4YmMxOTRhN2JkOTVlYTU=')  # ApiKey Linkinsoldier
         lang = 'de'
-        title = re.sub('(\(.*\))', '', title).strip()
+        title = re.sub(py2_encode('(\(.*\))'), py2_encode(''), title).strip()
 
         if attempt > 3:
             return {}
