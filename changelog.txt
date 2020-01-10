@@ -1,3 +1,7 @@
+1.13.13
+- Suche: Zur Serie wechseln, wenn Itemtyp = Episode
+1.13.12
+- Encoding-Fehler behoben
 1.13.11
 - Fehler beim Leeren des Caches behoben
 1.13.10

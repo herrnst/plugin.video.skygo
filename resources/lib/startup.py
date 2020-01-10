@@ -72,7 +72,7 @@ def run(argv):
                 nav.listPath(params['path'])
 
         elif params['action'] == 'listSeries':
-            nav.listSeasonsFromSeries(params['id'])
+            nav.listSeasonsFromSeries(params['id'], params.get('calltype'))
         elif params['action'] == 'listSeason':
             nav.listEpisodesFromSeason(params['series_id'], params['id'])
 

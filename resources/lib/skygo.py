@@ -64,15 +64,15 @@ class SkyGo:
         self.session.headers.update({'User-Agent': self.user_agent})
 
         if os.path.isfile(self.cookiePath):
-            with open(self.cookiePath, 'rb') as f:
-                try:
+            try:
+                with open(self.cookiePath, 'rb') as f:
                     cookies = requests.utils.cookiejar_from_dict(pickle.load(f))
                     self.session.cookies = cookies
-                except:
-                    self.login(forceLogin=True)
-                    # Save the cookies
-                    with open(self.cookiePath, 'wb') as f:
-                        pickle.dump(requests.utils.dict_from_cookiejar(self.session.cookies), f)
+            except:
+                self.login(forceLogin=True)
+                # Save the cookies
+                with open(self.cookiePath, 'wb') as f:
+                    pickle.dump(requests.utils.dict_from_cookiejar(self.session.cookies), f)
         return
 
 

@@ -389,26 +389,30 @@ class Navigation:
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
-    def listSeasonsFromSeries(self, series_id):
-        url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
-        r = self.skygo.session.get(url)
-        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = r.json()['serieRecap']['serie']
-            xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
-            for season in data['seasons']['season']:
-                url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
-                label = '{0} - Staffel {1:02d}'.format(data['title'], season['nr'])
-                li = xbmcgui.ListItem(label=label)
-                li.setProperty('IsPlayable', 'false')
-                li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
-                           'fanart': self.getHeroImage(data),
-                           'thumb': self.icon_file})
-                li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
-                li.addContextMenuItems([
-                    ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
-                    self.getWatchlistContextItem({'type': 'Episode', 'data': season})
-                ], replaceItems=False)
-                xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
+    def listSeasonsFromSeries(self, series_id, call_type):
+        if call_type == 'searchresult':
+            asset = self.getAssetDetailsFromCache(series_id)
+            series_id = asset.get('serie_id')
+        if series_id:
+            url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
+            r = self.skygo.session.get(url)
+            if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+                data = r.json()['serieRecap']['serie']
+                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
+                for season in data['seasons']['season']:
+                    url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
+                    label = '{0} - Staffel {1:02d}'.format(data['title'], season['nr'])
+                    li = xbmcgui.ListItem(label=label)
+                    li.setProperty('IsPlayable', 'false')
+                    li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
+                               'fanart': self.getHeroImage(data),
+                               'thumb': self.icon_file})
+                    li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
+                    li.addContextMenuItems([
+                        ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
+                        self.getWatchlistContextItem({'type': 'Episode', 'data': season})
+                    ], replaceItems=False)
+                    xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
 
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
@@ -714,6 +718,9 @@ class Navigation:
                 contextmenuitems.append(self.getWatchlistContextItem(item, isWatchlist))
             elif item['type'] == 'Season':
                 contextmenuitems.append(self.getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False))
+
+            if item['type'] == 'searchresult' and item.get('data').get('contentType') == 'Episode':
+                contextmenuitems.append(('Zur Serie', 'RunPlugin({0})'.format(self.common.build_url({'action': 'listSeries', 'id': asset['id'], 'calltype': item['type']}))))
 
             if len(contextmenuitems) > 0:
                 li.addContextMenuItems(contextmenuitems)
