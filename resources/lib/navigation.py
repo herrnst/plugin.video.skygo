@@ -392,7 +392,7 @@ class Navigation:
     def listSeasonsFromSeries(self, series_id, call_type):
         if call_type == 'searchresult':
             asset = self.getAssetDetailsFromCache(series_id)
-            series_id = asset.get('serie_id')
+            series_id = asset.get('serie_id') if len(asset) > 0 else None
         if series_id:
             url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
             r = self.skygo.session.get(url)
@@ -720,7 +720,7 @@ class Navigation:
                 contextmenuitems.append(self.getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False))
 
             if item['type'] == 'searchresult' and item.get('data').get('contentType') == 'Episode':
-                contextmenuitems.append(('Zur Serie', 'RunPlugin({0})'.format(self.common.build_url({'action': 'listSeries', 'id': asset['id'], 'calltype': item['type']}))))
+                contextmenuitems.append(('Zur Serie wechseln', 'Container.Update({0})'.format(self.common.build_url({'action': 'listSeries', 'id': item.get('data').get('id'), 'calltype': item['type']}))))
 
             if len(contextmenuitems) > 0:
                 li.addContextMenuItems(contextmenuitems)
