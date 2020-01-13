@@ -78,7 +78,12 @@ class SkyGo:
 
     def isLoggedIn(self):
         """Check if User is still logged in with the old cookies"""
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/user/getdata?product=SG&platform=web&version=12354')
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/user/getdata?{0}'.format(urllib.urlencode({
+            'version': '12354',
+            'platform': 'web',
+            'product': 'SG'
+        })))
+
         # Parse json
         response = r.text[3:-1]
         response = json.loads(response)
@@ -98,17 +103,28 @@ class SkyGo:
 
     def killSessions(self):
         # Kill other sessions
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/kill/web?version=12354&platform=web&product=SG')
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/kill/web?{0}'.format(urllib.urlencode({
+            'version': '12354',
+            'platform': 'web',
+            'product': 'SG'
+        })))
 
 
     def sendLogin(self, username, password):
         # Try to login
-        login = "email={0}".format(username)
-        if not re.match(r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$", username):
-            login = "customerCode={0}".format(username)
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/login?' \
-                             'version=12354&platform=web&product=SG&{0}&password={1}&remMe=true' \
-                             .format(login, self.decode(password)))
+        if not re.match(r'^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$', username):
+            loginKey = 'customerCode'
+        else:
+            loginKey = 'email'
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/login?{0}'.format(urllib.urlencode({
+            'version': '12354',
+            'platform': 'web',
+            'product': 'SG',
+            loginKey: username,
+            'password': self.decode(password),
+            'remMe': True
+        })))
+
         # Parse json
         return json.loads(r.text[3:-1])
 

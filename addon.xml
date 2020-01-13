@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.14" provider-name="jojo, frankr612, Maven, Linkinsoldier">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.13.15" provider-name="jojo, frankr612, Maven, Linkinsoldier">
 	<requires>
 		<import addon="xbmc.python" version="2.3.0"/>
 		<import addon="script.module.requests" version="2.9.1"/>
@@ -27,7 +27,7 @@
 		<website></website>
 		<email></email>
 		<source></source>
-		<news>1.13.14[CR]- Fehler in Suche behoben[CR][CR]1.13.13[CR]- Suche: Kontextmenüitem 'Zur Serie wechseln', wenn Itemtyp = Episode ist[CR][CR]1.13.12[CR]- Encoding-Fehler behoben[CR][CR]1.13.11[CR]-Fehler beim Leeren des Caches behoben</news>
+		<news>1.13.15[CR]- Suche: Nur Inhalte anzeigen, die der Inhaltskatalog bietet[CR][CR]1.13.14[CR]- Fehler in Suche behoben[CR][CR]1.13.13[CR]- Suche: Kontextmenüitem 'Zur Serie wechseln', wenn Itemtyp = Episode ist</news>
 		<reuselanguageinvoker>true</reuselanguageinvoker>
 	</extension>
 </addon>

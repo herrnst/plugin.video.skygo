@@ -7,6 +7,11 @@ import xbmcaddon
 import xbmcgui
 import xbmcplugin
 
+try:
+    import urllib.parse as urllib
+except:
+    import urllib
+
 
 class Watchlist:
 
@@ -30,12 +35,16 @@ class Watchlist:
         url = self.common.build_url({'action': 'watchlist', 'list': 'Sport'})
         self.nav.addDir('Sport', url)
 
-        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=False)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
 
     def listWatchlist(self, asset_type, page=0):
         self.skygo.login()
-        url = '{0}get?type={1}&page={2}&pageSize=8'.format(self.base_url, asset_type, page)
+        url = '{0}get?{1}'.format(self.base_url, urllib.urlencode({
+            'type': asset_type,
+            'page': page,
+            'pageSize': 8
+        }))
         r = self.skygo.session.get(url)
         data = json.loads(r.text[3:len(r.text) - 1])
 
@@ -56,12 +65,19 @@ class Watchlist:
 
         self.nav.listAssets(listitems, isWatchlist=True)
 
-        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=False)
 
 
     def addToWatchlist(self, asset_id, asset_type):
         self.skygo.login()
-        url = '{0}add?assetId={1}&type={2}&version=12354&platform=web&product=SG&catalog=sg'.format(self.base_url, asset_id, asset_type)
+        url = '{0}add?{1}'.format(self.base_url, urllib.urlencode({
+            'assetId': asset_id,
+            'type': asset_type,
+            'version': '12354',
+            'platform': 'web',
+            'product': 'SG',
+            'catalog': 'sg'
+        }))
         r = self.skygo.session.get(url)
         res = json.loads(r.text[3:len(r.text) - 1])
         if res['resultMessage'] == 'OK':
@@ -71,7 +87,13 @@ class Watchlist:
 
 
     def deleteFromWatchlist(self, asset_id):
-        url = '{0}delete?assetId={1}&version=12354&platform=web&product=SG&catalog=sg'.format(self.base_url, asset_id)
+        url = '{0}delete?{1}'.format(self.base_url, urllib.urlencode({
+            'assetId': asset_id,
+            'version': '12354',
+            'platform': 'web',
+            'product': 'SG',
+            'catalog': 'sg'
+        }))
         r = self.skygo.session.get(url)
         res = json.loads(r.text[3:len(r.text) - 1])
         if res['resultMessage'] == 'OK':

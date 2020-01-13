@@ -181,28 +181,27 @@ class Navigation:
     def search(self):
         dlg = xbmcgui.Dialog()
         term = dlg.input('Suchbegriff', type=xbmcgui.INPUT_ALPHANUM)
-        if term == '':
-            return
-        url = 'https://www.skygo.sky.de/SILK/services/public/search/web?{0}'.format(urllib.urlencode({
-            'searchKey': term,
-            'version': '12354',
-            'platform': 'web',
-            'product': 'SG'
-        }))
+        if term != py2_encode(''):
+            url = 'https://www.skygo.sky.de/SILK/services/public/search/web?{0}'.format(urllib.urlencode({
+                'searchKey': term,
+                'version': '12354',
+                'platform': 'web',
+                'product': self.skygo.baseServicePath[1:].upper()
+            }))
 
-        r = self.skygo.session.get(url)
-        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/x-javascript'):
-            data = json.loads(r.text[3:len(r.text) - 1])
-            listitems = []
-            for item in data['assetListResult']:
-                url = self.common.build_url({'action': 'playVod', 'vod_id': item['id']})
-                listitems.append({'type': 'searchresult', 'label': item['title'], 'url': url, 'data': item})
+            r = self.skygo.session.get(url)
+            if self.common.get_dict_value(r.headers, 'content-type').startswith('application/x-javascript'):
+                data = json.loads(r.text[3:len(r.text) - 1])
+                listitems = []
+                for item in data['assetListResult']:
+                    url = self.common.build_url({'action': 'playVod', 'vod_id': item['id']})
+                    listitems.append({'type': 'searchresult', 'label': item['title'], 'url': url, 'data': item})
 
-    #    if data['assetListResult']['hasNext']:
-    #        url = self.common.build_url({'action': 'listPage', 'path': ''})
-    #        listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
+        #    if data['assetListResult']['hasNext']:
+        #        url = self.common.build_url({'action': 'listPage', 'path': ''})
+        #        listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
 
-            self.listAssets(listitems)
+                self.listAssets(listitems)
 
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
@@ -378,8 +377,8 @@ class Navigation:
                         li.setLabel(episode.get('li_label') if episode.get('li_label', None) else info['title'])
                         # li = self.addStreamInfo(li, episode)
                         art = {'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
-                                'fanart': self.getHeroImage(data),
-                                'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, episode['webplayer_config']['assetThumbnail'], self.skygo.user_agent)}
+                               'fanart': self.getHeroImage(data),
+                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, episode['webplayer_config']['assetThumbnail'], self.skygo.user_agent)}
                         li.setArt(art)
                         url = self.common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
                         xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=False)
@@ -406,7 +405,7 @@ class Navigation:
                     li.setProperty('IsPlayable', 'false')
                     li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
                                'fanart': self.getHeroImage(data),
-                               'thumb': self.icon_file})
+                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent)})
                     li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
                     li.addContextMenuItems([
                         ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
