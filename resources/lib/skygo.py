@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from kodi_six.utils import py2_encode
+from kodi_six.utils import py2_encode, py2_decode
 import base64
 import struct
 import requests
@@ -21,9 +21,9 @@ import xbmcplugin
 from inputstreamhelper import Helper
 
 try:
-    import urllib.parse as urllib
+    from urllib.parse import urlencode
 except:
-    import urllib
+    from urllib import urlencode
 
 
 class SkyGo:
@@ -31,7 +31,7 @@ class SkyGo:
 
     baseUrl = "https://skyticket.sky.de"
     baseServicePath = '/st'
-    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36'
+    user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36'
     sessionId = ''
     LOGIN_STATUS = {'SUCCESS': 'T_100', 'SESSION_INVALID': 'S_218', 'OTHER_SESSION':'T_206'}
     entitlements = []
@@ -78,14 +78,14 @@ class SkyGo:
 
     def isLoggedIn(self):
         """Check if User is still logged in with the old cookies"""
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/user/getdata?{0}'.format(urllib.urlencode({
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/user/getdata?{0}'.format(urlencode({
             'version': '12354',
             'platform': 'web',
             'product': 'SG'
         })))
 
         # Parse json
-        response = r.text[3:-1]
+        response = py2_decode(r.text[3:-1])
         response = json.loads(response)
 
         if response['resultMessage'] == 'OK':
@@ -103,7 +103,7 @@ class SkyGo:
 
     def killSessions(self):
         # Kill other sessions
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/kill/web?{0}'.format(urllib.urlencode({
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/kill/web?{0}'.format(urlencode({
             'version': '12354',
             'platform': 'web',
             'product': 'SG'
@@ -116,7 +116,7 @@ class SkyGo:
             loginKey = 'customerCode'
         else:
             loginKey = 'email'
-        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/login?{0}'.format(urllib.urlencode({
+        r = self.session.get('https://www.skygo.sky.de/SILK/services/public/session/login?{0}'.format(urlencode({
             'version': '12354',
             'platform': 'web',
             'product': 'SG',
@@ -126,7 +126,7 @@ class SkyGo:
         })))
 
         # Parse json
-        return json.loads(r.text[3:-1])
+        return json.loads(py2_decode(r.text[3:-1]))
 
 
     def login(self, username=None, password=None, forceLogin=False, askKillSession=True):
@@ -234,7 +234,7 @@ class SkyGo:
             url = '{0}{1}/multiplatform/web/xml/player_playlist/asset/{2}.xml'.format(self.baseUrl, self.baseServicePath, id)
 
         r = requests.get(url)
-        tree = ET.ElementTree(ET.fromstring(r.text))
+        tree = ET.ElementTree(ET.fromstring(py2_decode(r.text)))
         root = tree.getroot()
         manifest_url = root.find('channel/item/media:content', ns).attrib['url']
         apix_id = root.find('channel/item/skyde:apixEventId', ns).text
@@ -250,7 +250,7 @@ class SkyGo:
         # Get Epg information
         xbmc.log('[Sky Go]  eventlisturl = {0}/epgd{1}/web/eventList/{2}/{3}/'.format(self.baseUrl, self.baseServicePath, current_date, epg_channel_id))
         r = requests.get('{0}/epgd{1}/web/eventList/{2}/{3}/'.format(self.baseUrl, self.baseServicePath, current_date, epg_channel_id))
-        events = r.json()[epg_channel_id]
+        events = json.loads(py2_decode(r.text))[epg_channel_id]
         for event in events:
             start_date = datetime.datetime(*('{0} {1}'.format(time.strptime(event['startDate'], event['startTime'], '%d.%m.%Y %H:%M')[0:6])))
             end_date = datetime.datetime(*('{0} {1}'.format(time.strptime(event['endDate'], event['endTime'], '%d.%m.%Y %H:%M')[0:6])))
@@ -265,7 +265,7 @@ class SkyGo:
         # If not Sky news then get details id else use hardcoded playinfo_url
         if epg_channel_id != '17':
             r = requests.get('{0}/epgd{1}/web/eventDetail/{2}/{3}/'.format(self.baseUrl, self.baseServicePath, event_id, epg_channel_id))
-            event_details_link = r.json()['detailPage']
+            event_details_link = json.loads(py2_decode(r.text))['detailPage']
             # Extract id from details link
             p = re.compile('/([0-9]*)\.html', re.IGNORECASE)
             m = re.search(p, event_details_link)
@@ -285,7 +285,7 @@ class SkyGo:
         url = '{0}{1}/multiplatform/web/json/details/asset/{2}.json'.format(self.baseUrl, self.baseServicePath, asset_id)
         r = self.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            return r.json()['asset']
+            return json.loads(py2_decode(r.text))['asset']
         else:
             return {}
 
@@ -293,7 +293,7 @@ class SkyGo:
     def getClipDetails(self, clip_id):
         url = '{0}{1}/multiplatform/web/json/details/clip/{2}.json'.format(self.baseUrl, self.baseServicePath, clip_id)
         r = self.session.get(url)
-        return r.json()['detail']
+        return json.loads(py2_decode(r.text))['detail']
 
 
     def get_init_data(self, session_id, apix_id):
@@ -347,9 +347,7 @@ class SkyGo:
         else:
             props.update({'license_type': 'com.widevine.alpha'})
             props.update({'license_url': 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser' \
-                '|User-Agent={0}' \
-                '&Referer={1}&Content-Type=|R{2}|' \
-                .format(urllib.quote(self.user_agent), 'https://www.skygo.sky.de/film/scifi--fantasy/jupiter-ascending/asset/filmsection/144836.html', '{SSM}')
+                '|User-Agent={0}&Referer={1}&Content-Type=|R{{SSM}}|'.format(self.user_agent, self.baseUrl)
             })
 
         return props
@@ -383,6 +381,7 @@ class SkyGo:
                     li.setProperty('inputstream.adaptive.license_type', self.license_type)
                     li.setProperty('inputstream.adaptive.manifest_type', 'ism')
                     li.setProperty('inputstream.adaptive.license_flags', 'persistent_storage')
+                    li.setProperty('inputstream.adaptive.stream_headers', 'User-Agent={0}'.format(self.user_agent))
                     if self.license_url:
                         li.setProperty('inputstream.adaptive.license_key', self.license_url)
                     if init_data:

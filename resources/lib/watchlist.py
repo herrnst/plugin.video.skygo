@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+from kodi_six.utils import py2_decode
 import json
 import xbmc
 import xbmcaddon
@@ -8,9 +9,9 @@ import xbmcgui
 import xbmcplugin
 
 try:
-    import urllib.parse as urllib
+    from urllib.parse import urlencode
 except:
-    import urllib
+    from urllib import urlencode
 
 
 class Watchlist:
@@ -40,13 +41,13 @@ class Watchlist:
 
     def listWatchlist(self, asset_type, page=0):
         self.skygo.login()
-        url = '{0}get?{1}'.format(self.base_url, urllib.urlencode({
+        url = '{0}get?{1}'.format(self.base_url, urlencode({
             'type': asset_type,
             'page': page,
             'pageSize': 8
         }))
         r = self.skygo.session.get(url)
-        data = json.loads(r.text[3:len(r.text) - 1])
+        data = json.loads(py2_decode(r.text[3:len(r.text) - 1]))
 
         listitems = []
         if data.get('watchlist'):
@@ -70,7 +71,7 @@ class Watchlist:
 
     def addToWatchlist(self, asset_id, asset_type):
         self.skygo.login()
-        url = '{0}add?{1}'.format(self.base_url, urllib.urlencode({
+        url = '{0}add?{1}'.format(self.base_url, urlencode({
             'assetId': asset_id,
             'type': asset_type,
             'version': '12354',
@@ -79,7 +80,7 @@ class Watchlist:
             'catalog': 'sg'
         }))
         r = self.skygo.session.get(url)
-        res = json.loads(r.text[3:len(r.text) - 1])
+        res = json.loads(py2_decode(r.text[3:len(r.text) - 1]))
         if res['resultMessage'] == 'OK':
             xbmcgui.Dialog().notification('Sky Go: Merkliste', '{0} zur Merkliste hinzugefügt'.format(asset_type), xbmcgui.NOTIFICATION_INFO, 2000, True)
         else:
@@ -87,7 +88,7 @@ class Watchlist:
 
 
     def deleteFromWatchlist(self, asset_id):
-        url = '{0}delete?{1}'.format(self.base_url, urllib.urlencode({
+        url = '{0}delete?{1}'.format(self.base_url, urlencode({
             'assetId': asset_id,
             'version': '12354',
             'platform': 'web',
@@ -95,7 +96,7 @@ class Watchlist:
             'catalog': 'sg'
         }))
         r = self.skygo.session.get(url)
-        res = json.loads(r.text[3:len(r.text) - 1])
+        res = json.loads(py2_decode(r.text[3:len(r.text) - 1]))
         if res['resultMessage'] == 'OK':
             xbmc.executebuiltin('Container.Refresh')
         else:

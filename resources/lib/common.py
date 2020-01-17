@@ -6,9 +6,9 @@ import ast
 from collections import OrderedDict
 
 try:
-    import urllib.parse as urllib
+    from urllib.parse import urlencode
 except:
-    import urllib
+    from urllib import urlencode
 
 
 class Common:
@@ -25,7 +25,7 @@ class Common:
     def build_url(self, query):
         query.update({'zz': ''})
         query = OrderedDict(query.items())
-        return '{0}?{1}'.format(self.base_url, urllib.urlencode(query))
+        return '{0}?{1}'.format(self.base_url, urlencode(query))
 
 
     def getDictFromString(self, str):

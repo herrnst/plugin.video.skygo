@@ -13,9 +13,9 @@ from .vod import VOD
 from .watchlist import Watchlist
 
 try:
-    import urllib.parse as urlparse
+    from urllib.parse import parse_qsl
 except:
-    import urlparse
+    from urlparse import parse_qsl
 
 
 def run(argv):
@@ -28,7 +28,7 @@ def run(argv):
     vod = VOD(nav, skygo)
     watchlist = Watchlist(common, nav, skygo)
 
-    params = dict(urlparse.parse_qsl(argv[2][1:]))
+    params = dict(parse_qsl(argv[2][1:]))
 
     # Router for all plugin actions
     if 'action' in params:

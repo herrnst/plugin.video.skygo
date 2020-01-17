@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from kodi_six.utils import py2_encode
+from kodi_six.utils import py2_encode, py2_decode
 import os
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon, xbmcvfs
 import json
@@ -17,13 +17,12 @@ except:
     import storageserverdummy as StorageServer
 
 try:
-    import urllib.parse as urlparse
-    import urllib.parse as urllib
+    from urllib.parse import urlencode, urlparse, parse_qsl
     from urllib.request import build_opener, urlopen
     from urllib.error import URLError
 except:
-    import urlparse
-    import urllib
+    from urllib import urlencode
+    from urlparse import urlparse, parse_qsl
     from urllib2 import build_opener, urlopen, URLError
 
 
@@ -182,7 +181,7 @@ class Navigation:
         dlg = xbmcgui.Dialog()
         term = dlg.input('Suchbegriff', type=xbmcgui.INPUT_ALPHANUM)
         if term != py2_encode(''):
-            url = 'https://www.skygo.sky.de/SILK/services/public/search/web?{0}'.format(urllib.urlencode({
+            url = 'https://www.skygo.sky.de/SILK/services/public/search/web?{0}'.format(urlencode({
                 'searchKey': term,
                 'version': '12354',
                 'platform': 'web',
@@ -191,7 +190,7 @@ class Navigation:
 
             r = self.skygo.session.get(url)
             if self.common.get_dict_value(r.headers, 'content-type').startswith('application/x-javascript'):
-                data = json.loads(r.text[3:len(r.text) - 1])
+                data = json.loads(py2_decode(r.text[3:len(r.text) - 1]))
                 listitems = []
                 for item in data['assetListResult']:
                     url = self.common.build_url({'action': 'playVod', 'vod_id': item['id']})
@@ -231,7 +230,7 @@ class Navigation:
         data = {}
         r = self.skygo.session.get('{0}/epgd{1}/ipad/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = r.json()
+            data = json.loads(py2_decode(r.text))
             for tab in data:
                 if tab['tabName'] == 'film':
                     tab['tabName'] = 'cinema'
@@ -241,7 +240,7 @@ class Navigation:
             if channel:
                 channel_list = []
 
-                data = [json for json in data if json['tabName'].lower() == channel.lower()]
+                data = [item for item in data if item['tabName'].lower() == channel.lower()]
                 for tab in data:
                     for event in tab['eventList']:
                         if event.get('event').get('assetid', None) is None:
@@ -253,8 +252,8 @@ class Navigation:
 
                 r = self.skygo.session.get('{0}/epgd{1}/web/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                    data_web = r.json()
-                    data_web = [json for json in data_web if json['tabName'].lower() == channel.lower()]
+                    data_web = json.loads(py2_decode(r.text))
+                    data_web = [item for item in data_web if item['tabName'].lower() == channel.lower()]
                     for tab_web in data_web:
                         for event_web in tab_web['eventList']:
                             if event_web['channel']['name'] not in channel_list:
@@ -354,7 +353,7 @@ class Navigation:
         url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = r.json()['serieRecap']['serie']
+            data = json.loads(py2_decode(r.text))['serieRecap']['serie']
             xbmcplugin.setContent(self.common.addon_handle, 'episodes')
             for season in data['seasons']['season']:
                 if str(season['id']) == str(season_id):
@@ -396,7 +395,7 @@ class Navigation:
             url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
             r = self.skygo.session.get(url)
             if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                data = r.json()['serieRecap']['serie']
+                data = json.loads(py2_decode(r.text))['serieRecap']['serie']
                 xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
                 for season in data['seasons']['season']:
                     url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
@@ -432,7 +431,7 @@ class Navigation:
                 url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, asset['serie_id'])
                 r = self.skygo.session.get(url)
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                    serie = r.json()['serieRecap']['serie']
+                    serie = json.loads(py2_decode(r.text))['serieRecap']['serie']
                     asset['synopsis'] = serie['synopsis']
                     for season in serie['seasons']['season']:
                         if season['id'] == asset['id']:
@@ -594,18 +593,22 @@ class Navigation:
                         info['plot'] = item_data.get('event', '').get('subtitle', '')
                         asset_type = 'Film'
                     else:
-                        info['title'] = '[COLOR blue]{0}[/COLOR] {1}'.format(item_data.get('event', '').get('title', ''), item_data['event'].get('subtitle', ''))
-                    info['duration'] = item_data.get('event', '').get('length', 0) * 60
+                        info['mediatype'] = 'episode'
+                        info['title'] = item_data['event'].get('subtitle', '')
+                        info['tvshowtitle'] = item_data.get('event').get('title', '')
+                        item_data['li_label'] = '[COLOR blue]{0}[/COLOR] {1}'.format(info.get('tvshowtitle'), info.get('title'))
+                    info['duration'] = item_data.get('event', {}).get('length', 0) * 60
                 if data.get('type', '') == 'Film':
                     asset_type = 'Film'
                 elif data.get('type', '') == 'Episode':
                     asset_type = 'Episode'
+                    info['mediatype'] = 'episode'
                     info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
-                    info['title'] = '[COLOR blue]{0}[/COLOR] {1}'.format(data.get('serie_title', ''), data.get('title', ''))
+                    item_data['li_label'] = '[COLOR blue]{0}[/COLOR] {1}'.format(data.get('serie_title', ''), data.get('title', ''))
             if self.channel_name_first == 'true':
-                item_data['li_label'] = '[COLOR orange]{0}[/COLOR] {1}'.format(item_data['channel']['name'], info['title'])
+                item_data['li_label'] = '[COLOR orange]{0}[/COLOR] {1}'.format(item_data['channel']['name'], item_data.get('li_label') if item_data.get('li_label') else info['title'])
             else:
-                item_data['li_label'] = '{0} [COLOR orange]{1}[/COLOR]'.format(info['title'], item_data['channel']['name'])
+                item_data['li_label'] = '{0} [COLOR orange]{1}[/COLOR]'.format(item_data.get('li_label') if item_data.get('li_label') else info['title'], item_data['channel']['name'])
 
             info['plot'] = '{0} - {1}\n\n{2}'.format(item_data.get('event').get('startTime'), item_data.get('event').get('endTime'), info['plot'])
         if asset_type == 'searchresult':
@@ -622,7 +625,7 @@ class Navigation:
                 item_data['li_label'] = '{0:01d}x{1:02d}. {2}'.format(data.get('season_nr', ''), data.get('episode_nr', ''), data.get('serie_title', ''))
         if asset_type == 'Film':
             info['mediatype'] = 'movie'
-            if self.lookup_tmdb_data == 'true' and not data.get('title', '') == '':
+            if self.lookup_tmdb_data == 'true' and data.get('title', '') != '':
                 title = py2_encode(data.get('title', ''))
                 xbmc.log(py2_encode('Searching Rating and better Poster for "{0}" at tmdb.com').format(title))
                 if data.get('year_of_production', '') != '':
@@ -641,9 +644,9 @@ class Navigation:
             info['year'] = data.get('year_of_production_start', '')
         if asset_type == 'Episode':
             info['mediatype'] = 'episode'
-            info['episode'] = data.get('episode_nr', '')
-            info['season'] = data.get('season_nr', '')
-            info['tvshowtitle'] = data.get('serie_title', '')
+            info['episode'] = data.get('episode_nr')
+            info['season'] = data.get('season_nr')
+            info['tvshowtitle'] = data.get('serie_title')
             if info['title'] == '':
                 info['title'] = data.get('episode_nr', 0)
                 item_data['li_label'] = '{0} - S{1:02d}E{2:02d}'.format(data.get('serie_title', ''), data.get('season_nr', 0), data.get('episode_nr', 0))
@@ -686,9 +689,10 @@ class Navigation:
                         if not self.skygo.parentalCheck(parental_rating, play=False):
                             continue
                 info, item['data'] = self.getInfoLabel(item['type'], item['data'])
+                xbmc.log('info = {0}'.format(item['data']))
                 li.setInfo('video', info)
                 additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
-                li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label', None) else info['title'])
+                li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label') else info['title'])
                 # if item['type'] not in ['Series', 'Season']:
                 #    li = self.addStreamInfo(li, item['data'])
 
@@ -731,8 +735,8 @@ class Navigation:
                 additional_params.update({'art': art})
                 li.setArt(art)
 
-            parsed_url = urlparse.urlparse(item['url'])
-            params = dict(urlparse.parse_qsl(parsed_url.query))
+            parsed_url = urlparse(item['url'])
+            params = dict(parse_qsl(parsed_url.query))
             params.update(additional_params)
             url = self.common.build_url(params)
 
@@ -744,7 +748,7 @@ class Navigation:
         path = path.replace('ipad', 'web')
         r = self.skygo.session.get('{0}{1}'.format(self.skygo.baseUrl, path))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            page = r.json()
+            page = json.loads(py2_decode(r.text))
         else:
             xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
             return False
@@ -800,17 +804,16 @@ class Navigation:
         return self.assetDetailsCache.cacheFunction(self.skygo.getAssetDetails, asset_id)
 
 
-    def getTMDBDataFromCache(self, title, year=None, attempt=1, content='movie'):
-        return self.TMDBCache.cacheFunction(self.getTMDBData, title, year, attempt, content)
+    def getTMDBDataFromCache(self, title, year=None, attempt=1):
+        return self.TMDBCache.cacheFunction(self.getTMDBData, title, year, attempt)
 
 
-    def getTMDBData(self, title, year=None, attempt=1, content='movie'):
+    def getTMDBData(self, title, year=None, attempt=1):
         # This product uses the TMDb API but is not endorsed or certified by TMDb.
         rating = None
         poster_path = None
         tmdb_id = None
         tmdb_api = base64.b64decode('YTAwYzUzOTU0M2JlMGIwODE4YmMxOTRhN2JkOTVlYTU=')  # ApiKey Linkinsoldier
-        lang = 'de'
         title = re.sub(py2_encode('(\(.*\))'), py2_encode(''), title).strip()
 
         if attempt > 3:
@@ -818,12 +821,12 @@ class Navigation:
 
         try:
             # Define the moviedb Link zu download the json
-            url = 'https://api.themoviedb.org/3/search/{0}?{1}'.format(content, urllib.urlencode({
+            url = 'https://api.themoviedb.org/3/search/movie?{0}'.format(urlencode({
                 'api_key': tmdb_api,
-                'language': lang,
+                'language': 'de',
                 'query': title,
                 'year': year if year else ''
-            }))
+            }).replace('+', '%20'))
             # Download and load the corresponding json
             data = json.load(urlopen(url))
 
@@ -842,14 +845,14 @@ class Navigation:
                 if result['poster_path']:
                     poster_path = 'https://image.tmdb.org/t/p/w500{0}'.format(result['poster_path'])
                 tmdb_id = result['id']
-            elif year is not None:
-                attempt += 1
-                xbmc.log(py2_encode('Try again - without release year - to find Title: {0}').format(title))
-                return self.getTMDBData(title, None, attempt)
             elif title.find(py2_encode('-')) > -1:
                 attempt += 1
                 title = title.split(py2_encode('-'))[0].strip()
                 xbmc.log(py2_encode('Try again - find Title: {0}').format(title))
+                return self.getTMDBData(title, year, attempt)
+            elif year is not None:
+                attempt += 1
+                xbmc.log(py2_encode('Try again - without release year - to find Title: {0}').format(title))
                 return self.getTMDBData(title, None, attempt)
             else:
                 xbmc.log(py2_encode('No movie found with Title: {0}').format(title))
@@ -864,8 +867,7 @@ class Navigation:
                 if attempt < 4:
                     return self.getTMDBData(title, year, attempt)
 
-            return {'tmdb_id': tmdb_id, 'title': title, 'rating': rating , 'poster_path': poster_path}
-        return {'tmdb_id': tmdb_id, 'title': title, 'rating': rating , 'poster_path': poster_path}
+        return {'tmdb_id': tmdb_id, 'title': py2_decode(title), 'rating': rating , 'poster_path': poster_path}
 
 
     def addStreamInfo(self, listitem, data):
