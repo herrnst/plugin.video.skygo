@@ -32,6 +32,7 @@ class SkyGo:
     baseUrl = "https://skyticket.sky.de"
     baseServicePath = '/st'
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.117 Safari/537.36'
+    referer = 'https://skyticket.sky.de/film/scifi--fantasy/jupiter-ascending/asset/filmsection/144836.html'
     sessionId = ''
     LOGIN_STATUS = {'SUCCESS': 'T_100', 'SESSION_INVALID': 'S_218', 'OTHER_SESSION':'T_206'}
     entitlements = []
@@ -287,7 +288,12 @@ class SkyGo:
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             return json.loads(py2_decode(r.text))['asset']
         else:
-            return {}
+            url = '{0}{1}/multiplatform/ipad/json/details/asset/{2}.json'.format(self.baseUrl, self.baseServicePath, asset_id)
+            r = self.session.get(url)
+            if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+                return json.loads(py2_decode(r.text))['asset']
+            else:
+                return {}
 
 
     def getClipDetails(self, clip_id):
@@ -346,14 +352,12 @@ class SkyGo:
             props.update({'android_deviceid': android_deviceid})
         else:
             props.update({'license_type': 'com.widevine.alpha'})
-            props.update({'license_url': 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser' \
-                '|User-Agent={0}&Referer={1}&Content-Type=|R{{SSM}}|'.format(self.user_agent, self.baseUrl)
-            })
+            props.update({'license_url': 'https://wvguard.sky.de/WidevineLicenser/WidevineLicenser'})
 
         return props
 
 
-    def play(self, manifest_url, package_code, parental_rating=0, info_tag=None, art_tag=None, apix_id=None):
+    def play(self, manifest_url, package_code, parental_rating=0, info_tag=None, art_tag=None, apix_id=None, webvod_url=None):
         # Inputstream and DRM
         helper = Helper(protocol='ism', drm='widevine')
         if helper.check_inputstream():
@@ -383,7 +387,9 @@ class SkyGo:
                     li.setProperty('inputstream.adaptive.license_flags', 'persistent_storage')
                     li.setProperty('inputstream.adaptive.stream_headers', 'User-Agent={0}'.format(self.user_agent))
                     if self.license_url:
-                        li.setProperty('inputstream.adaptive.license_key', self.license_url)
+                        webvod_url = webvod_url if webvod_url and webvod_url != '' else self.referer
+                        license_key = '{0}|User-Agent={1}&Referer={2}&Content-Type=|R{{SSM}}|'.format(self.license_url, self.user_agent, webvod_url)
+                        li.setProperty('inputstream.adaptive.license_key', license_key)
                     if init_data:
                         li.setProperty('inputstream.adaptive.license_data', init_data)
 

@@ -18,12 +18,9 @@ except:
 
 try:
     from urllib.parse import urlencode, urlparse, parse_qsl
-    from urllib.request import build_opener, urlopen
-    from urllib.error import URLError
 except:
     from urllib import urlencode
     from urlparse import urlparse, parse_qsl
-    from urllib2 import build_opener, urlopen, URLError
 
 
 class Navigation:
@@ -58,11 +55,8 @@ class Navigation:
 
 
     def getNav(self):
-        opener = build_opener()
-        opener.addheaders = [('User-Agent', self.skygo.user_agent)]
-        feed = opener.open('{0}{1}/multiplatform/ipad/json/navigation.xml'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
-        nav = ET.parse(feed)
-        return nav.getroot()
+        r = self.skygo.session.get('{0}{1}/multiplatform/ipad/json/navigation.xml'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
+        return ET.fromstring(py2_encode(r.text))
 
 
     def liveChannelsDir(self):
@@ -97,8 +91,110 @@ class Navigation:
 
     def addDir(self, label, url, icon=None):
         li = xbmcgui.ListItem(label)
-        li.setArt({'icon': icon if icon else self.icon_file, 'thumb': self.icon_file})
+        li.setArt({'icon': icon if icon else self.icon_file, 'thumb': icon if icon else self.icon_file})
         xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
+
+
+    def listPage(self, page_id):
+        nav = self.getNav()
+        items = self.getPageItems(nav, page_id)
+        if len(items) == 1:
+            if 'path' in items[0].attrib:
+                self.listPath(items[0].attrib['path'])
+                return
+        for item in items:
+            url = ''
+            if item.tag == 'item':
+                url = self.common.build_url({'action': 'listPage', 'path': item.attrib['path']})
+            elif item.tag == 'section':
+                url = self.common.build_url({'action': 'listPage', 'id': item.attrib['id']})
+
+            self.addDir(item.attrib['label'], url)
+
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
+
+
+    def listPath(self, path):
+        page = {}
+        # path = path.replace('ipad', 'web')
+        r = self.skygo.session.get('{0}{1}'.format(self.skygo.baseUrl, path))
+        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+            page = json.loads(py2_decode(r.text))
+        else:
+            xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
+            return False
+        if 'sort_by_lexic_p' in path:
+            url = self.common.build_url({'action': 'listPage', 'path': '{0}header.json'.format(path[0:path.index('sort_by_lexic_p')])})
+            self.addDir('[A-Z]', url)
+
+        listitems = self.parseListing(page, path)
+        self.listAssets(listitems)
+
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
+
+
+    def getPageItems(self, nodes, page_id):
+        listitems = []
+        for section in nodes.iter('section'):
+            if section.attrib['id'] == page_id:
+                for item in section:
+                    if int(item.attrib['id']) in self.nav_blacklist:
+                        continue
+                    listitems.append(item)
+
+        return listitems
+
+
+    def parseListing(self, page, path):
+        listitems = []
+        curr_page = 1
+        page_count = 1
+        if 'letters' in page:
+            for item in page['letters']['letter']:
+                if item['linkable'] is True:
+                    url = self.common.build_url({'action': 'listPage', 'path': path.replace('header', '{0}'.format(item['content']))})
+                    listitems.append({'type': 'path', 'label': str(item['content']), 'url': url})
+        elif 'listing' in page:
+            if 'isPaginated' in page['listing']:
+                curr_page = page['listing']['currPage']
+                page_count = page['listing']['pages']
+            if 'asset_listing' in page['listing']:
+                listitems = self.getAssets(page['listing']['asset_listing']['asset'])
+            elif 'listing' in page['listing']:
+                listing_type = page['listing'].get('type', '')
+                # SportClips
+                if listing_type == 'ClipsListing':
+                    listitems = self.getAssets(page['listing']['listing']['item'], key='type')
+                # SportReplays
+                elif 'asset' in page['listing']['listing']:
+                    listitems = self.getAssets(page['listing']['listing']['asset'])
+                elif 'item' in page['listing']['listing']:
+                    if isinstance(page['listing']['listing']['item'], list):
+                        # Zeige nur A-Z Sortierung
+                        if self.checkForLexic(page['listing']['listing']['item']):
+                            path = page['listing']['listing']['item'][0]['path'].replace('header.json', 'sort_by_lexic_p1.json')
+                            self.listPath(path)
+                            return []
+                        for item in page['listing']['listing']['item']:
+                            if not 'asset_type' in item and 'path' in item:
+                                url = self.common.build_url({'action': 'listPage', 'path': item['path']})
+                                listitems.append({'type': 'listPage', 'label': item['title'], 'url': url})
+                    else:
+                        self.listPath(page['listing']['listing']['item']['path'])
+
+        if curr_page < page_count:
+            url = self.common.build_url({'action': 'listPage', 'path': path.replace('_p{0}'.format(curr_page), '_p{0}'.format((curr_page + 1)))})
+            listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
+
+        return listitems
+
+
+    def checkForLexic(self, listing):
+        if len(listing) == 2:
+            if 'ByLexic' in listing[0]['structureType'] and 'ByYear' in listing[1]['structureType']:
+                return True
+
+        return False
 
 
     def showParentalSettings(self):
@@ -120,61 +216,6 @@ class Navigation:
                     self.common.addon.setSetting('js_showall', 'false')
         else:
             xbmcgui.Dialog().notification('Sky Go: Jugendschutz', 'Fehlerhafte PIN', xbmcgui.NOTIFICATION_ERROR, 2000, True)
-
-
-    def getHeroImage(self, data):
-        if 'main_picture' in data:
-            for pic in data['main_picture']['picture']:
-                if pic['type'] == 'hero_img':
-                    return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, pic['path'], pic['file'], self.skygo.user_agent)
-        if 'item_image' in data:
-            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_image'], self.skygo.user_agent)
-        if 'picture' in data:
-            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
-
-        return ''
-
-
-    def getPoster(self, data):
-        if 'name' in data and self.customlogos == 'true':
-            img = self.getLocalChannelLogo(data['name'])
-            if img:
-                return img
-
-        if data.get('dvd_cover', '') != '':
-            return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, data['dvd_cover']['path'], data['dvd_cover']['file'], self.skygo.user_agent)
-        if data.get('item_preview_image', '') != '':
-            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_preview_image'], self.skygo.user_agent)
-        if data.get('picture', '') != '':
-            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
-        if data.get('logo', '') != '':
-            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['logo'], self.skygo.user_agent)
-
-        return ''
-
-
-    def getChannelLogo(self, data):
-        logopath = ''
-        if 'channelLogo' in data:
-            basepath = '{0}/'.format(data['channelLogo']['basepath'])
-            size = 0
-            for logo in data['channelLogo']['logos']:
-                logosize = logo['size'][:logo['size'].find('x')]
-                if int(logosize) > size:
-                    size = int(logosize)
-                    logopath = '{0}{1}{2}|User-Agent={3}'.format(self.skygo.baseUrl, basepath, logo['imageFile'], self.skygo.user_agent)
-        return logopath
-
-
-    def getLocalChannelLogo(self, channel_name):
-        if self.logopath != '' and xbmcvfs.exists(self.logopath):
-            dirs, files = xbmcvfs.listdir(self.logopath)
-            for f in files:
-                if f.lower().endswith('.png'):
-                    if channel_name.lower().replace(' ', '') == os.path.basename(f).lower().replace('.png', '').replace(' ', ''):
-                        return os.path.join(self.logopath, f)
-
-        return None
 
 
     def search(self):
@@ -349,8 +390,36 @@ class Navigation:
         return {} if s_manifest_url else details
 
 
+    def listSeasonsFromSeries(self, series_id, call_type):
+        if call_type == 'searchresult':
+            asset = self.getAssetDetailsFromCache(series_id)
+            series_id = asset.get('serie_id') if len(asset) > 0 else None
+        if series_id:
+            url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
+            r = self.skygo.session.get(url)
+            if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+                data = json.loads(py2_decode(r.text))['serieRecap']['serie']
+                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
+                for season in data['seasons']['season']:
+                    url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
+                    label = '{0} - Staffel {1:02d}'.format(data['title'], season['nr'])
+                    li = xbmcgui.ListItem(label=label)
+                    li.setProperty('IsPlayable', 'false')
+                    li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
+                               'fanart': self.getHeroImage(data),
+                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent)})
+                    li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
+                    li.addContextMenuItems([
+                        ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
+                        self.getWatchlistContextItem({'type': 'Episode', 'data': season})
+                    ], replaceItems=False)
+                    xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
+
+        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
+
+
     def listEpisodesFromSeason(self, series_id, season_id):
-        url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
+        url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
             data = json.loads(py2_decode(r.text))['serieRecap']['serie']
@@ -375,42 +444,21 @@ class Navigation:
                         li.setInfo('video', info)
                         li.setLabel(episode.get('li_label') if episode.get('li_label', None) else info['title'])
                         # li = self.addStreamInfo(li, episode)
+                        if episode.get('webplayer_config', {}).get('assetThumbnail'):
+                            thumb = episode.get('webplayer_config', {}).get('assetThumbnail')
+                        else:
+                            thumb = episode.get('main_picture').get('picture')[len(episode.get('main_picture').get('picture')) - 1]
+                            thumb = '{0}/{1}'.format(thumb.get('path'), thumb.get('file'))
+
                         art = {'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
                                'fanart': self.getHeroImage(data),
-                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, episode['webplayer_config']['assetThumbnail'], self.skygo.user_agent)}
+                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, thumb, self.skygo.user_agent)
+                              }
                         li.setArt(art)
                         url = self.common.build_url({'action': 'playVod', 'vod_id': episode['id'], 'infolabels': info, 'parental_rating': parental_rating, 'art': art})
                         xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=False)
 
             xbmcplugin.addSortMethod(self.common.addon_handle, sortMethod=xbmcplugin.SORT_METHOD_EPISODE)
-
-        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
-
-
-    def listSeasonsFromSeries(self, series_id, call_type):
-        if call_type == 'searchresult':
-            asset = self.getAssetDetailsFromCache(series_id)
-            series_id = asset.get('serie_id') if len(asset) > 0 else None
-        if series_id:
-            url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
-            r = self.skygo.session.get(url)
-            if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                data = json.loads(py2_decode(r.text))['serieRecap']['serie']
-                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
-                for season in data['seasons']['season']:
-                    url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
-                    label = '{0} - Staffel {1:02d}'.format(data['title'], season['nr'])
-                    li = xbmcgui.ListItem(label=label)
-                    li.setProperty('IsPlayable', 'false')
-                    li.setArt({'poster': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent),
-                               'fanart': self.getHeroImage(data),
-                               'thumb': '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, season['path'], self.skygo.user_agent)})
-                    li.setInfo('video', {'plot': data['synopsis'].replace('\n', '').strip()})
-                    li.addContextMenuItems([
-                        ('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))),
-                        self.getWatchlistContextItem({'type': 'Episode', 'data': season})
-                    ], replaceItems=False)
-                    xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=True)
 
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
 
@@ -428,7 +476,7 @@ class Navigation:
                 url = self.common.build_url({'action': 'listSeries', 'id': asset['id']})
                 asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
             elif asset[key].lower() == 'season':
-                url = '{0}{1}/multiplatform/web/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, asset['serie_id'])
+                url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, asset['serie_id'])
                 r = self.skygo.session.get(url)
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
                     serie = json.loads(py2_decode(r.text))['serieRecap']['serie']
@@ -440,58 +488,6 @@ class Navigation:
                     asset_list.append({'type': asset[key], 'label': asset['title'], 'url': url, 'data': asset})
 
         return asset_list
-
-
-    def checkForLexic(self, listing):
-        if len(listing) == 2:
-            if 'ByLexic' in listing[0]['structureType'] and 'ByYear' in listing[1]['structureType']:
-                return True
-
-        return False
-
-
-    def parseListing(self, page, path):
-        listitems = []
-        curr_page = 1
-        page_count = 1
-        if 'letters' in page:
-            for item in page['letters']['letter']:
-                if item['linkable'] is True:
-                    url = self.common.build_url({'action': 'listPage', 'path': path.replace('header', '{0}_p1'.format(item['content']))})
-                    listitems.append({'type': 'path', 'label': str(item['content']), 'url': url})
-        elif 'listing' in page:
-            if 'isPaginated' in page['listing']:
-                curr_page = page['listing']['currPage']
-                page_count = page['listing']['pages']
-            if 'asset_listing' in page['listing']:
-                listitems = self.getAssets(page['listing']['asset_listing']['asset'])
-            elif 'listing' in page['listing']:
-                listing_type = page['listing'].get('type', '')
-                # SportClips
-                if listing_type == 'ClipsListing':
-                    listitems = self.getAssets(page['listing']['listing']['item'], key='type')
-                # SportReplays
-                elif 'asset' in page['listing']['listing']:
-                    listitems = self.getAssets(page['listing']['listing']['asset'])
-                elif 'item' in page['listing']['listing']:
-                    if isinstance(page['listing']['listing']['item'], list):
-                        # Zeige nur A-Z Sortierung
-                        if self.checkForLexic(page['listing']['listing']['item']):
-                            path = page['listing']['listing']['item'][0]['path'].replace('header.json', 'sort_by_lexic_p1.json')
-                            self.listPath(path)
-                            return []
-                        for item in page['listing']['listing']['item']:
-                            if not 'asset_type' in item and 'path' in item:
-                                url = self.common.build_url({'action': 'listPage', 'path': item['path']})
-                                listitems.append({'type': 'listPage', 'label': item['title'], 'url': url})
-                    else:
-                        self.listPath(page['listing']['listing']['item']['path'])
-
-        if curr_page < page_count:
-            url = self.common.build_url({'action': 'listPage', 'path': path.replace('_p{0}'.format(curr_page), '_p{0}'.format((curr_page + 1)))})
-            listitems.append({'type': 'path', 'label': 'Mehr...', 'url': url})
-
-        return listitems
 
 
     def buildLiveEventTag(self, event_info):
@@ -520,6 +516,94 @@ class Navigation:
         return tag
 
 
+    def getWatchlistContextItem(self, item, delete=False):
+        label = 'Zur Merkliste hinzufügen'
+        action = 'watchlistAdd'
+        asset_type = item['type']
+        ids = []
+        if delete:
+            label = 'Von Merkliste entfernen'
+            action = 'watchlistDel'
+        if asset_type == 'searchresult':
+            asset_type = item['data']['contentType']
+        if delete == False and asset_type == 'Episode' and len(item.get('data').get('episodes', {})) > 0:
+            for episode in item.get('data').get('episodes').get('episode'):
+                ids.append(str(episode.get('id')))
+        else:
+            ids.append(str(item['data']['id']))
+
+        url = self.common.build_url({'action': action, 'id': ','.join(ids), 'assetType': asset_type})
+        return (label, 'RunPlugin({0})'.format(url))
+
+
+    def listAssets(self, asset_list, isWatchlist=False):
+        for item in asset_list:
+            isPlayable = False
+            additional_params = {}
+            li = xbmcgui.ListItem(label=item['label'])
+            if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
+                isPlayable = True
+                # Check Altersfreigabe / Jugendschutzeinstellungen
+                parental_rating = 0
+                if 'parental_rating' in item['data']:
+                    parental_rating = item['data']['parental_rating']['value']
+                    if self.js_showall == 'false':
+                        if not self.skygo.parentalCheck(parental_rating, play=False):
+                            continue
+                info, item['data'] = self.getInfoLabel(item['type'], item['data'])
+                li.setInfo('video', info)
+                additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
+                li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label') else info['title'])
+                # if item['type'] not in ['Series', 'Season']:
+                #    li = self.addStreamInfo(li, item['data'])
+
+            if item['type'] in ['Film']:
+                xbmcplugin.setContent(self.common.addon_handle, 'movies')
+            elif item['type'] in ['Series', 'Season']:
+                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
+                isPlayable = False
+            elif item['type'] in ['Episode']:
+                xbmcplugin.setContent(self.common.addon_handle, 'episodes')
+            elif item['type'] in ['Sport', 'Clip']:
+                xbmcplugin.setContent(self.common.addon_handle, 'files')
+            elif item['type'] == 'searchresult':
+                xbmcplugin.setContent(self.common.addon_handle, 'movies')
+            elif item['type'] == 'live':
+                xbmcplugin.setContent(self.common.addon_handle, 'files')
+                if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
+                    xbmcplugin.setContent(self.common.addon_handle, 'movies')
+
+            contextmenuitems = []
+            if item['type'] in ['Film', 'Series', 'Season', 'Episode', 'live']:
+                contextmenuitems.append(('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))))
+
+            # add contextmenu item for watchlist to playable content - not for live and clip content
+            if isPlayable and not item['type'] in ['live', 'Clip']:
+                contextmenuitems.append(self.getWatchlistContextItem(item, isWatchlist))
+            elif item['type'] == 'Season':
+                contextmenuitems.append(self.getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False))
+
+            if item['type'] == 'searchresult' and item.get('data').get('contentType') == 'Episode':
+                contextmenuitems.append(('Zur Serie wechseln', 'Container.Update({0})'.format(self.common.build_url({'action': 'listSeries', 'id': item.get('data').get('id'), 'calltype': item['type']}))))
+
+            if len(contextmenuitems) > 0:
+                li.addContextMenuItems(contextmenuitems)
+
+            li.setProperty('IsPlayable', str(isPlayable).lower())
+
+            art = self.getArt(item)
+            if len(art) > 0:
+                additional_params.update({'art': art})
+                li.setArt(art)
+
+            parsed_url = urlparse(item['url'])
+            params = dict(parse_qsl(parsed_url.query))
+            params.update(additional_params)
+            url = self.common.build_url(params)
+
+            xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
+
+
     def getInfoLabel(self, asset_type, item_data):
         data = item_data
         if data.get('mediainfo'):
@@ -537,8 +621,8 @@ class Navigation:
         info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
         if info['plot'] == '':
             info['plot'] = data.get('description', '').replace('\n', '').strip()
-        if data.get('technical_event', {}).get('on_air', {}).get('end_date', '') != '':
-            string_end_date = data.get('technical_event', {}).get('on_air', {}).get('end_date', '')
+        if data.get('technical_event', {}).get('on_air', data.get('on_air')).get('end_date', '') != '':
+            string_end_date = data.get('technical_event', {}).get('on_air', data.get('on_air')).get('end_date', '')
             split_end_date = string_end_date.split('/')
             if len(split_end_date) == 3:
                 info['plot'] = 'Verfügbar bis {0}.{1}.{2}\n\n{3}'.format(split_end_date[2], split_end_date[1], split_end_date[0], info.get('plot', ''))
@@ -570,14 +654,14 @@ class Navigation:
 
         if asset_type == 'Sport' and data.get('current_type', '') == 'Live':
             # LivePlanner listing
-            info['title'] = '{0} {1}'.format(self.buildLiveEventTag(data['technical_event']['on_air']), info['title'])
+            info['title'] = '{0} {1}'.format(self.buildLiveEventTag(data.get('technical_event', {}).get('on_air', data.get('on_air'))), info['title'])
             info['plot'] = data.get('title', '')
         if asset_type == 'Clip':
             info['title'] = data['item_title']
             info['plot'] = data.get('teaser_long', '')
             info['genre'] = data.get('item_category_name', '')
         if asset_type == 'live':
-            if item_data['channel']['name'].startswith("Sky Sport"):
+            if item_data['channel']['name'].startswith('Sky Sport'):
                 info['title'] = item_data['event'].get('subtitle', '')
             if info['title'] == '':
                 info['title'] = item_data['event'].get('title', '')
@@ -654,152 +738,6 @@ class Navigation:
         return info, item_data
 
 
-    def getWatchlistContextItem(self, item, delete=False):
-        label = 'Zur Merkliste hinzufügen'
-        action = 'watchlistAdd'
-        asset_type = item['type']
-        ids = []
-        if delete:
-            label = 'Von Merkliste entfernen'
-            action = 'watchlistDel'
-        if asset_type == 'searchresult':
-            asset_type = item['data']['contentType']
-        if delete == False and asset_type == 'Episode' and len(item.get('data').get('episodes', {})) > 0:
-            for episode in item.get('data').get('episodes').get('episode'):
-                ids.append(str(episode.get('id')))
-        else:
-            ids.append(str(item['data']['id']))
-
-        url = self.common.build_url({'action': action, 'id': ','.join(ids), 'assetType': asset_type})
-        return (label, 'RunPlugin({0})'.format(url))
-
-
-    def listAssets(self, asset_list, isWatchlist=False):
-        for item in asset_list:
-            isPlayable = False
-            additional_params = {}
-            li = xbmcgui.ListItem(label=item['label'])
-            if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
-                isPlayable = True
-                # Check Altersfreigabe / Jugendschutzeinstellungen
-                parental_rating = 0
-                if 'parental_rating' in item['data']:
-                    parental_rating = item['data']['parental_rating']['value']
-                    if self.js_showall == 'false':
-                        if not self.skygo.parentalCheck(parental_rating, play=False):
-                            continue
-                info, item['data'] = self.getInfoLabel(item['type'], item['data'])
-                xbmc.log('info = {0}'.format(item['data']))
-                li.setInfo('video', info)
-                additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
-                li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label') else info['title'])
-                # if item['type'] not in ['Series', 'Season']:
-                #    li = self.addStreamInfo(li, item['data'])
-
-            if item['type'] in ['Film']:
-                xbmcplugin.setContent(self.common.addon_handle, 'movies')
-            elif item['type'] in ['Series', 'Season']:
-                xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
-                isPlayable = False
-            elif item['type'] in ['Episode']:
-                xbmcplugin.setContent(self.common.addon_handle, 'episodes')
-            elif item['type'] in ['Sport', 'Clip']:
-                xbmcplugin.setContent(self.common.addon_handle, 'files')
-            elif item['type'] == 'searchresult':
-                xbmcplugin.setContent(self.common.addon_handle, 'movies')
-            elif item['type'] == 'live':
-                xbmcplugin.setContent(self.common.addon_handle, 'files')
-                if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
-                    xbmcplugin.setContent(self.common.addon_handle, 'movies')
-
-            contextmenuitems = []
-            if item['type'] in ['Film', 'Series', 'Season', 'Episode', 'live']:
-                contextmenuitems.append(('Aktualisieren', 'RunPlugin({0})'.format(self.common.build_url({'action': 'refresh'}))))
-
-            # add contextmenu item for watchlist to playable content - not for live and clip content
-            if isPlayable and not item['type'] in ['live', 'Clip']:
-                contextmenuitems.append(self.getWatchlistContextItem(item, isWatchlist))
-            elif item['type'] == 'Season':
-                contextmenuitems.append(self.getWatchlistContextItem({'type': 'Episode', 'data': item['data']}, False))
-
-            if item['type'] == 'searchresult' and item.get('data').get('contentType') == 'Episode':
-                contextmenuitems.append(('Zur Serie wechseln', 'Container.Update({0})'.format(self.common.build_url({'action': 'listSeries', 'id': item.get('data').get('id'), 'calltype': item['type']}))))
-
-            if len(contextmenuitems) > 0:
-                li.addContextMenuItems(contextmenuitems)
-
-            li.setProperty('IsPlayable', str(isPlayable).lower())
-
-            art = self.getArt(item)
-            if len(art) > 0:
-                additional_params.update({'art': art})
-                li.setArt(art)
-
-            parsed_url = urlparse(item['url'])
-            params = dict(parse_qsl(parsed_url.query))
-            params.update(additional_params)
-            url = self.common.build_url(params)
-
-            xbmcplugin.addDirectoryItem(handle=self.common.addon_handle, url=url, listitem=li, isFolder=(not isPlayable))
-
-
-    def listPath(self, path):
-        page = {}
-        path = path.replace('ipad', 'web')
-        r = self.skygo.session.get('{0}{1}'.format(self.skygo.baseUrl, path))
-        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            page = json.loads(py2_decode(r.text))
-        else:
-            xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
-            return False
-        if 'sort_by_lexic_p' in path:
-            url = self.common.build_url({'action': 'listPage', 'path': '{0}header.json'.format(path[0:path.index('sort_by_lexic_p')])})
-            self.addDir('[A-Z]', url)
-
-        listitems = self.parseListing(page, path)
-        self.listAssets(listitems)
-
-        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
-
-
-    def getPageItems(self, nodes, page_id):
-        listitems = []
-        for section in nodes.iter('section'):
-            if section.attrib['id'] == page_id:
-                for item in section:
-                    if int(item.attrib['id']) in self.nav_blacklist:
-                        continue
-                    listitems.append(item)
-
-        return listitems
-
-
-    def getParentNode(self, nodes, page_id):
-        for item in nodes.iter('section'):
-            if item.attrib['id'] == page_id:
-                return item
-        return None
-
-
-    def listPage(self, page_id):
-        nav = self.getNav()
-        items = self.getPageItems(nav, page_id)
-        if len(items) == 1:
-            if 'path' in items[0].attrib:
-                self.listPath(items[0].attrib['path'])
-                return
-        for item in items:
-            url = ''
-            if item.tag == 'item':
-                url = self.common.build_url({'action': 'listPage', 'path': item.attrib['path']})
-            elif item.tag == 'section':
-                url = self.common.build_url({'action': 'listPage', 'id': item.attrib['id']})
-
-            self.addDir(item.attrib['label'], url)
-
-        xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
-
-
     def getAssetDetailsFromCache(self, asset_id):
         return self.assetDetailsCache.cacheFunction(self.skygo.getAssetDetails, asset_id)
 
@@ -819,16 +757,17 @@ class Navigation:
         if attempt > 3:
             return {}
 
-        try:
-            # Define the moviedb Link zu download the json
-            url = 'https://api.themoviedb.org/3/search/movie?{0}'.format(urlencode({
-                'api_key': tmdb_api,
-                'language': 'de',
-                'query': title,
-                'year': year if year else ''
-            }).replace('+', '%20'))
-            # Download and load the corresponding json
-            data = json.load(urlopen(url))
+        # Define the moviedb Link zu download the json
+        url = 'https://api.themoviedb.org/3/search/movie?{0}'.format(urlencode({
+            'api_key': tmdb_api,
+            'language': 'de',
+            'query': title,
+            'year': year if year else ''
+        }).replace('+', '%20'))
+
+        r = self.skygo.session.get(url)
+        if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
+            data = json.loads(py2_decode(r.text))
 
             if data['total_results'] > 0:
                 if data['total_results'] > 1:
@@ -857,17 +796,9 @@ class Navigation:
             else:
                 xbmc.log(py2_encode('No movie found with Title: {0}').format(title))
 
-        except URLError as e:
-            xbmc.log('Error reason: {0}'.format(e))
+            return {'tmdb_id': tmdb_id, 'title': py2_decode(title), 'rating': rating , 'poster_path': poster_path}
 
-            if '429' or 'timed out' in e:
-                attempt += 1
-                xbmc.log('Attempt #{0} - Too many requests - Pause 1 sec'.format(attempt))
-                xbmc.sleep(1000)
-                if attempt < 4:
-                    return self.getTMDBData(title, year, attempt)
-
-        return {'tmdb_id': tmdb_id, 'title': py2_decode(title), 'rating': rating , 'poster_path': poster_path}
+        return {}
 
 
     def addStreamInfo(self, listitem, data):
@@ -898,24 +829,15 @@ class Navigation:
         art = {}
 
         if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
-            art.update({'poster': self.getPoster(item['data']), 'fanart': self.getHeroImage(item['data'])})
-        if item['type'] in ['Film']:
-            if self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
-                poster_path = item['data']['TMDb_poster_path']
-            else:
-                poster_path = self.getPoster(item['data'])
-            art.update({'poster': poster_path})
+            poster = self.getPoster(item['data'])
+            art.update({'poster': poster, 'fanart': self.getHeroImage(item['data']), 'thumb': poster})
+            if item['type'] in ['Film', 'searchresult'] and self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
+                art.update({'poster': item['data']['TMDb_poster_path']})
         elif item['type'] in ['Sport', 'Clip']:
             thumb = self.getHeroImage(item['data'])
             art.update({'thumb': thumb})
             if item.get('data').get('current_type', '') == 'Live':
                 art.update({'poster': thumb})
-        elif item['type'] == 'searchresult':
-            if self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
-                poster_path = item['data']['TMDb_poster_path']
-            else:
-                poster_path = self.getPoster(item['data'])
-            art.update({'poster': poster_path})
         elif item['type'] == 'live':
             poster = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.getChannelLogo(item['data']['channel']))
             fanart = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else '{0}/bin/Picture/817/C_1_Picture_7179_content_4.jpg'.format(self.skygo.baseUrl))
@@ -932,3 +854,58 @@ class Navigation:
             art.update({'poster':  '{0}|User-Agent={1}'.format(poster, self.skygo.user_agent), 'fanart': '{0}|User-Agent={1}'.format(fanart, self.skygo.user_agent), 'thumb': '{0}|User-Agent={1}'.format(thumb, self.skygo.user_agent)})
 
         return art
+
+
+    def getHeroImage(self, data):
+        if 'main_picture' in data:
+            for pic in data['main_picture']['picture']:
+                if pic['type'] == 'hero_img':
+                    return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, pic['path'], pic['file'], self.skygo.user_agent)
+        if 'item_image' in data:
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_image'], self.skygo.user_agent)
+        if 'picture' in data:
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
+
+        return ''
+
+
+    def getPoster(self, data):
+        if 'name' in data and self.customlogos == 'true':
+            img = self.getLocalChannelLogo(data['name'])
+            if img:
+                return img
+
+        if data.get('dvd_cover', '') != '':
+            return '{0}{1}/{2}|User-Agent={3}'.format(self.skygo.baseUrl, data['dvd_cover']['path'], data['dvd_cover']['file'], self.skygo.user_agent)
+        if data.get('item_preview_image', '') != '':
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['item_preview_image'], self.skygo.user_agent)
+        if data.get('picture', '') != '':
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['picture'], self.skygo.user_agent)
+        if data.get('logo', '') != '':
+            return '{0}{1}|User-Agent={2}'.format(self.skygo.baseUrl, data['logo'], self.skygo.user_agent)
+
+        return ''
+
+
+    def getChannelLogo(self, data):
+        logopath = ''
+        if 'channelLogo' in data:
+            basepath = '{0}/'.format(data['channelLogo']['basepath'])
+            size = 0
+            for logo in data['channelLogo']['logos']:
+                logosize = logo['size'][:logo['size'].find('x')]
+                if int(logosize) > size:
+                    size = int(logosize)
+                    logopath = '{0}{1}{2}|User-Agent={3}'.format(self.skygo.baseUrl, basepath, logo['imageFile'], self.skygo.user_agent)
+        return logopath
+
+
+    def getLocalChannelLogo(self, channel_name):
+        if self.logopath != '' and xbmcvfs.exists(self.logopath):
+            dirs, files = xbmcvfs.listdir(self.logopath)
+            for f in files:
+                if f.lower().endswith('.png'):
+                    if channel_name.lower().replace(' ', '') == os.path.basename(f).lower().replace('.png', '').replace(' ', ''):
+                        return os.path.join(self.logopath, f)
+
+        return None
