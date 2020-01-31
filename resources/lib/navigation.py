@@ -72,7 +72,7 @@ class Navigation:
     def rootDir(self):
         nav = self.getNav()
         # Livesender
-        self.liveChannelsDir()
+        # self.liveChannelsDir()
         # Navigation der Ipad App
         for item in nav:
             if item.attrib['hide'] == 'true' or item.tag == 'item':
@@ -109,6 +109,8 @@ class Navigation:
             elif item.tag == 'section':
                 url = self.common.build_url({'action': 'listPage', 'id': item.attrib['id']})
 
+            if item.attrib['label'].lower().find('meistgesehen') > -1:
+                continue
             self.addDir(item.attrib['label'], url)
 
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
@@ -267,7 +269,7 @@ class Navigation:
         xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=False)
 
 
-    def getlistLiveChannelData(self, channel=None):
+    def getlistLiveChannelData(self, channel=None, showWarning=True):
         data = {}
         r = self.skygo.session.get('{0}/epgd{1}/ipad/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
@@ -317,7 +319,7 @@ class Navigation:
                                         event_web['channel']['msMediaUrl'] = msMediaUrl
                                         tab['eventList'].append(event_web)
 
-        if len(data) == 0:
+        if showWarning and len(data) == 0:
             xbmcgui.Dialog().notification('Sky Go: Datenabruf', 'Es konnten keine Daten geladen werden', xbmcgui.NOTIFICATION_ERROR, 2000, True)
 
         return sorted(data, key=lambda k: k['tabName'])
@@ -467,7 +469,10 @@ class Navigation:
         asset_list = []
         for asset in data:
             if asset[key].lower() in ['film', 'episode', 'sport']:
-                url = self.common.build_url({'action': 'playVod', 'vod_id': asset['id']})
+                action = 'playVod'
+                if asset[key].lower() == 'sport' and asset.get('current_type', '') == 'Live':
+                    action = 'playLive'
+                url = self.common.build_url({'action': action, 'vod_id': asset['id']})
                 asset_list.append({'type': asset[key], 'label': '', 'url': url, 'data': asset})
             elif asset[key].lower() == 'clip':
                 url = self.common.build_url({'action': 'playClip', 'id': asset['id']})
@@ -493,7 +498,7 @@ class Navigation:
     def buildLiveEventTag(self, event_info):
         tag = ''
         dayDict = {'Monday': 'Montag', 'Tuesday': 'Dienstag', 'Wednesday': 'Mittwoch', 'Thursday': 'Donnerstag', 'Friday': 'Freitag', 'Saturday': 'Samstag', 'Sunday': 'Sonntag'}
-        if event_info != '':
+        if event_info:
             now = datetime.datetime.now()
 
             strStartTime = '{0} {1}'.format(event_info['start_date'], event_info['start_time'])
@@ -538,9 +543,12 @@ class Navigation:
 
     def listAssets(self, asset_list, isWatchlist=False):
         for item in asset_list:
+            label = item.get('label')
+            if label.lower().find('meistgesehen') > -1:
+                continue
             isPlayable = False
             additional_params = {}
-            li = xbmcgui.ListItem(label=item['label'])
+            li = xbmcgui.ListItem(label=label)
             if item['type'] in ['Film', 'Episode', 'Sport', 'Clip', 'Series', 'live', 'searchresult', 'Season']:
                 isPlayable = True
                 # Check Altersfreigabe / Jugendschutzeinstellungen
@@ -621,7 +629,7 @@ class Navigation:
         info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
         if info['plot'] == '':
             info['plot'] = data.get('description', '').replace('\n', '').strip()
-        if data.get('technical_event', {}).get('on_air', data.get('on_air')).get('end_date', '') != '':
+        if data.get('technical_event', {}).get('on_air', data.get('on_air', {})).get('end_date', '') != '':
             string_end_date = data.get('technical_event', {}).get('on_air', data.get('on_air')).get('end_date', '')
             split_end_date = string_end_date.split('/')
             if len(split_end_date) == 3:
@@ -654,8 +662,9 @@ class Navigation:
 
         if asset_type == 'Sport' and data.get('current_type', '') == 'Live':
             # LivePlanner listing
-            info['title'] = '{0} {1}'.format(self.buildLiveEventTag(data.get('technical_event', {}).get('on_air', data.get('on_air'))), info['title'])
+            item_data['li_label'] = '{0} {1}'.format(self.buildLiveEventTag(data.get('technical_event', {}).get('on_air', data.get('on_air'))), info['title'])
             info['plot'] = data.get('title', '')
+            info['title'] = data.get('title', '')
         if asset_type == 'Clip':
             info['title'] = data['item_title']
             info['plot'] = data.get('teaser_long', '')
@@ -833,12 +842,13 @@ class Navigation:
             art.update({'poster': poster, 'fanart': self.getHeroImage(item['data']), 'thumb': poster})
             if item['type'] in ['Film', 'searchresult'] and self.lookup_tmdb_data == 'true' and 'TMDb_poster_path' in item['data']:
                 art.update({'poster': item['data']['TMDb_poster_path']})
-        elif item['type'] in ['Sport', 'Clip']:
+        if item['type'] in ['Sport', 'Clip']:
             thumb = self.getHeroImage(item['data'])
             art.update({'thumb': thumb})
             if item.get('data').get('current_type', '') == 'Live':
-                art.update({'poster': thumb})
-        elif item['type'] == 'live':
+                old_poster = art.get('poster')
+                art.update({'poster': thumb, 'clearlogo': old_poster})
+        if item['type'] == 'live':
             poster = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.getChannelLogo(item['data']['channel']))
             fanart = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else '{0}/bin/Picture/817/C_1_Picture_7179_content_4.jpg'.format(self.skygo.baseUrl))
             thumb = poster

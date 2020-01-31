@@ -40,7 +40,7 @@ def run(argv):
         elif params['action'] == 'playClip':
             clips.playClip(params['id'])
         elif params['action'] == 'playLive':
-            liveTV.playLiveTv(params['manifest_url'], package_code=params.get('package_code'), infolabels=common.getDictFromString(params.get('infolabels', None)), art=common.getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
+            liveTV.playLiveTv(asset_id=params.get('vod_id'), manifest_url=params.get('manifest_url'), package_code=params.get('package_code'), infolabels=common.getDictFromString(params.get('infolabels', None)), art=common.getDictFromString(params.get('art', None)), parental_rating=int(params.get('parental_rating', 0)))
         elif params['action'] == 'listLiveTvChannelDirs':
             nav.listLiveTvChannelDirs()
         elif params['action'] == 'listLiveTvChannels':

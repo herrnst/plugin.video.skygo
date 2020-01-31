@@ -1,3 +1,7 @@
+1.13.18
+- Fehlerbehebung
+- Anzeige des Channellogos im OSD bei Livesport
+- Ordner mit dem Titel 'Meistgesehen' ausblenden
 1.13.17
 - API-Anpassungen
 1.13.16
