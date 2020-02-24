@@ -7,6 +7,7 @@ import xbmc, xbmcaddon
 from .clips import Clips
 from .common import Common
 from .livetv import LiveTV
+from .memcache import Memcache
 from .navigation import Navigation
 from .skygo import SkyGo
 from .vod import VOD
@@ -20,7 +21,7 @@ except:
 
 def run(argv):
 
-    common = Common(xbmcaddon.Addon(), int(argv[1]))
+    common = Common(xbmcaddon.Addon(), int(argv[1]), Memcache())
     skygo = SkyGo(common)
     nav = Navigation(common, skygo)
     clips = Clips(skygo)
@@ -90,3 +91,4 @@ def run(argv):
 
     else:
         nav.rootDir()
+        common.addon.setSetting('startup', 'false')

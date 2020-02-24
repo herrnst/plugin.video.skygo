@@ -42,7 +42,7 @@ class SkyGo:
 
         self.common = common
 
-        datapath = xbmc.translatePath(self.common.addon.getAddonInfo('profile'))
+        datapath = self.common.addon_profile
         self.cookiePath = '{0}COOKIES'.format(datapath)
 
         self.android_deviceid = self.common.addon.getSetting('android_deviceid')

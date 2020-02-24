@@ -2,14 +2,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from kodi_six.utils import py2_encode, py2_decode
-import os
-import xbmc, xbmcgui, xbmcplugin, xbmcaddon, xbmcvfs
-import json
-import datetime
-import time
-import xml.etree.ElementTree as ET
-import re
-import base64
+from base64 import b64decode
+from datetime import datetime, timedelta
+from json import loads
+from os.path import basename, join
+from re import search, sub
+from time import mktime, strptime
+from xml.etree.ElementTree import fromstring
+import xbmc
+import xbmcgui
+import xbmcplugin
+import xbmcvfs
 
 try:
     import StorageServer
@@ -31,7 +34,7 @@ class Navigation:
         self.common = common
         self.skygo = skygo
 
-        self.icon_file = xbmc.translatePath('{0}/icon.png'.format(self.common.addon.getAddonInfo('path')))
+        self.icon_file = '{0}/icon.png'.format(self.common.addon_path)
 
         self.channel_name_first = self.common.addon.getSetting('channel_name_first')
         self.customlogos = self.common.addon.getSetting('enable_customlogos')
@@ -49,14 +52,19 @@ class Navigation:
         # Jugendschutz
 
         # Doc for Caching Function: http://kodi.wiki/index.php?title=Add-on:Common_plugin_cache
-        self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.common.addon.getAddonInfo('name')), 24 * 30)
+        self.assetDetailsCache = StorageServer.StorageServer(py2_encode('{0}.assetdetails').format(self.common.addon_id), 24 * 30)
         if self.lookup_tmdb_data == 'true':
-            self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.common.addon.getAddonInfo('name')), 24 * 30)
+            self.TMDBCache = StorageServer.StorageServer(py2_encode('{0}.TMDBdata').format(self.common.addon_id), 24 * 30)
 
 
     def getNav(self):
-        r = self.skygo.session.get('{0}{1}/multiplatform/ipad/json/navigation.xml'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
-        return ET.fromstring(py2_encode(r.text))
+        cache_key = '{0}.navigation.xml'.format(self.common.addon_id)
+        cached_data = self.common.memcache.get_cached_item(cache_key)
+        if self.common.startup or not cached_data:
+            r = self.skygo.session.get('{0}{1}/multiplatform/ipad/json/navigation.xml'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
+            cached_data = dict(data=r.text)
+            self.common.memcache.add_cached_item(cache_key, cached_data)
+        return fromstring(py2_encode(cached_data.get('data')))
 
 
     def liveChannelsDir(self):
@@ -121,7 +129,7 @@ class Navigation:
         # path = path.replace('ipad', 'web')
         r = self.skygo.session.get('{0}{1}'.format(self.skygo.baseUrl, path))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            page = json.loads(py2_decode(r.text))
+            page = loads(py2_decode(r.text))
         else:
             xbmcplugin.endOfDirectory(self.common.addon_handle, cacheToDisc=True)
             return False
@@ -174,7 +182,7 @@ class Navigation:
                     if isinstance(page['listing']['listing']['item'], list):
                         # Zeige nur A-Z Sortierung
                         if self.checkForLexic(page['listing']['listing']['item']):
-                            path = page['listing']['listing']['item'][0]['path'].replace('header.json', 'sort_by_lexic_p1.json')
+                            path = page['listing']['listing']['item'][0]['path']  # .replace('header.json', 'sort_by_lexic_p1.json')
                             self.listPath(path)
                             return []
                         for item in page['listing']['listing']['item']:
@@ -233,7 +241,7 @@ class Navigation:
 
             r = self.skygo.session.get(url)
             if self.common.get_dict_value(r.headers, 'content-type').startswith('application/x-javascript'):
-                data = json.loads(py2_decode(r.text[3:len(r.text) - 1]))
+                data = loads(py2_decode(r.text[3:len(r.text) - 1]))
                 listitems = []
                 for item in data['assetListResult']:
                     url = self.common.build_url({'action': 'playVod', 'vod_id': item['id']})
@@ -273,7 +281,7 @@ class Navigation:
         data = {}
         r = self.skygo.session.get('{0}/epgd{1}/ipad/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = json.loads(py2_decode(r.text))
+            data = loads(py2_decode(r.text))
             for tab in data:
                 if tab['tabName'] == 'film':
                     tab['tabName'] = 'cinema'
@@ -287,24 +295,24 @@ class Navigation:
                 for tab in data:
                     for event in tab['eventList']:
                         if event.get('event').get('assetid', None) is None:
-                            event['event']['assetid'] = re.search('\/(\d+)\.html', event['event']['detailPage']).group(1) if event['event']['detailPage'].startswith('http') else None
+                            event['event']['assetid'] = search('\/(\d+)\.html', event['event']['detailPage']).group(1) if event['event']['detailPage'].startswith('http') else None
                         if event.get('event').get('cmsid', None) is None:
-                            event['event']['cmsid'] = int(re.search('(\d+)', event['event']['image'][event['event']['image'].rfind('_') + 1:]).group(1)) if event['event']['image'].endswith('png') else None
+                            event['event']['cmsid'] = int(search('(\d+)', event['event']['image'][event['event']['image'].rfind('_') + 1:]).group(1)) if event['event']['image'].endswith('png') else None
 
                         channel_list.append(event['channel']['name'])
 
                 r = self.skygo.session.get('{0}/epgd{1}/web/excerpt/'.format(self.skygo.baseUrl, self.skygo.baseServicePath))
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                    data_web = json.loads(py2_decode(r.text))
+                    data_web = loads(py2_decode(r.text))
                     data_web = [item for item in data_web if item['tabName'].lower() == channel.lower()]
                     for tab_web in data_web:
                         for event_web in tab_web['eventList']:
                             if event_web['channel']['name'] not in channel_list:
                                 for tab in data:
                                     if event_web.get('event').get('assetid', None) is None:
-                                        event_web['event']['assetid'] = re.search('\/(\d+)\.html', event_web['event']['detailPage']).group(1) if event_web['event']['detailPage'].startswith('http') else None
+                                        event_web['event']['assetid'] = search('\/(\d+)\.html', event_web['event']['detailPage']).group(1) if event_web['event']['detailPage'].startswith('http') else None
                                     if event_web.get('event').get('cmsid', None) is None:
-                                        event_web['event']['cmsid'] = int(re.search('(\d+)', event_web['event']['image'][event_web['event']['image'].rfind('_') + 1:]).group(1)) if event_web['event']['image'].endswith('png') else None
+                                        event_web['event']['cmsid'] = int(search('(\d+)', event_web['event']['image'][event_web['event']['image'].rfind('_') + 1:]).group(1)) if event_web['event']['image'].endswith('png') else None
 
                                     msMediaUrl = None
                                     if event_web['channel']['mediaurl'].startswith('http'):
@@ -343,7 +351,7 @@ class Navigation:
                 url = self.common.build_url({'action': 'playVod', 'vod_id': event['event']['assetid']})
 
             if not event.get('mediainfo') and self.extMediaInfos == 'true':
-                assetid_match = re.search('\/(\d+)\.html', event['event']['detailPage'])
+                assetid_match = search('\/(\d+)\.html', event['event']['detailPage'])
                 if assetid_match:
                     assetid = 0
                     try:
@@ -368,7 +376,7 @@ class Navigation:
             # zeige keine doppelten sender mit gleichem stream - nutze hd falls verfügbar
             if url and detail != '':
                 parental_rating = 0
-                fskInfo = re.search('(\d+)', event['event']['fskInfo'])
+                fskInfo = search('(\d+)', event['event']['fskInfo'])
                 if fskInfo:
                     try:
                         parental_rating = int(fskInfo.group(1))
@@ -400,7 +408,7 @@ class Navigation:
             url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
             r = self.skygo.session.get(url)
             if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                data = json.loads(py2_decode(r.text))['serieRecap']['serie']
+                data = loads(py2_decode(r.text))['serieRecap']['serie']
                 xbmcplugin.setContent(self.common.addon_handle, 'tvshows')
                 for season in data['seasons']['season']:
                     url = self.common.build_url({'action': 'listSeason', 'id': season['id'], 'series_id': data['id']})
@@ -424,7 +432,7 @@ class Navigation:
         url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, series_id)
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = json.loads(py2_decode(r.text))['serieRecap']['serie']
+            data = loads(py2_decode(r.text))['serieRecap']['serie']
             xbmcplugin.setContent(self.common.addon_handle, 'episodes')
             for season in data['seasons']['season']:
                 if str(season['id']) == str(season_id):
@@ -484,7 +492,7 @@ class Navigation:
                 url = '{0}{1}/multiplatform/ipad/json/details/series/{2}_global.json'.format(self.skygo.baseUrl, self.skygo.baseServicePath, asset['serie_id'])
                 r = self.skygo.session.get(url)
                 if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-                    serie = json.loads(py2_decode(r.text))['serieRecap']['serie']
+                    serie = loads(py2_decode(r.text))['serieRecap']['serie']
                     asset['synopsis'] = serie['synopsis']
                     for season in serie['seasons']['season']:
                         if season['id'] == asset['id']:
@@ -499,18 +507,18 @@ class Navigation:
         tag = ''
         dayDict = {'Monday': 'Montag', 'Tuesday': 'Dienstag', 'Wednesday': 'Mittwoch', 'Thursday': 'Donnerstag', 'Friday': 'Freitag', 'Saturday': 'Samstag', 'Sunday': 'Sonntag'}
         if event_info:
-            now = datetime.datetime.now()
+            now = datetime.now()
 
             strStartTime = '{0} {1}'.format(event_info['start_date'], event_info['start_time'])
             strEndTime = '{0} {1}'.format(event_info['end_date'], event_info['end_time'])
-            start_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strStartTime, '%Y/%m/%d %H:%M')))
-            end_time = datetime.datetime.fromtimestamp(time.mktime(time.strptime(strEndTime, '%Y/%m/%d %H:%M')))
+            start_time = datetime.fromtimestamp(mktime(strptime(strStartTime, '%Y/%m/%d %H:%M')))
+            end_time = datetime.fromtimestamp(mktime(strptime(strEndTime, '%Y/%m/%d %H:%M')))
 
             if (now >= start_time) and (now <= end_time):
                 tag = '[COLOR red]Live[/COLOR]'
-            elif start_time.date() == datetime.datetime.today().date():
+            elif start_time.date() == datetime.today().date():
                 tag = '[COLOR blue]Heute {0}[/COLOR]'.format(event_info['start_time'])
-            elif start_time.date() == (datetime.datetime.today() + datetime.timedelta(days=1)).date():
+            elif start_time.date() == (datetime.today() + timedelta(days=1)).date():
                 tag = '[COLOR blue]Morgen {0}[/COLOR]'.format(event_info['start_time'])
             else:
                 day = start_time.strftime('%A')
@@ -553,12 +561,12 @@ class Navigation:
                 isPlayable = True
                 # Check Altersfreigabe / Jugendschutzeinstellungen
                 parental_rating = 0
-                if 'parental_rating' in item['data']:
+                if item.get('data') and 'parental_rating' in item.get('data'):
                     parental_rating = item['data']['parental_rating']['value']
                     if self.js_showall == 'false':
                         if not self.skygo.parentalCheck(parental_rating, play=False):
                             continue
-                info, item['data'] = self.getInfoLabel(item['type'], item['data'])
+                info, item['data'] = self.getInfoLabel(item['type'], item.get('data'))
                 li.setInfo('video', info)
                 additional_params.update({'infolabels': info, 'parental_rating': parental_rating})
                 li.setLabel(item.get('data').get('li_label') if item.get('data').get('li_label') else info['title'])
@@ -643,7 +651,7 @@ class Navigation:
             for cast in data.get('cast_list', {}).get('cast', {}):
                 if cast['type'] == 'Darsteller':
                     if cast['character'] != '':
-                        char = re.search('(.*)\(', cast['content']).group(1).strip() if re.search('(.*)\(', cast['content']) else ''
+                        char = search('(.*)\(', cast['content']).group(1).strip() if search('(.*)\(', cast['content']) else ''
                         castandrole_list.append((char, cast['character']))
                     else:
                         cast_list.append(cast['content'])
@@ -670,20 +678,20 @@ class Navigation:
             info['plot'] = data.get('teaser_long', '')
             info['genre'] = data.get('item_category_name', '')
         if asset_type == 'live':
-            if item_data['channel']['name'].startswith('Sky Sport'):
+            if item_data.get('channel').get('name', '').startswith('Sky Sport'):
                 info['title'] = item_data['event'].get('subtitle', '')
-            if info['title'] == '':
+            if info['title'] == '' and item_data.get('event'):
                 info['title'] = item_data['event'].get('title', '')
-            info['plot'] = data.get('synopsis', '').replace('\n', '').strip() if data.get('synopsis', '') != '' else item_data['event'].get('subtitle', '')
-            if not item_data['channel']['name'].startswith('Sky Sport'):
+            info['plot'] = data.get('synopsis', '').replace('\n', '').strip() if data.get('synopsis', '') != '' else item_data.get('event').get('subtitle')
+            if item_data.get('channel') and not item_data.get('channel').get('name', '').startswith('Sky Sport'):
                 if 'mediainfo' in item_data:
                     info['title'] = data.get('title', '')
                     info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
                 else:
                     if item_data['channel']['name'].lower().find('cinema') >= 0 or item_data['channel']['color'].lower() == 'film':
-                        info['title'] = item_data.get('event', '').get('title', '')
+                        info['title'] = item_data.get('event', {}).get('title', '')
                         data['title'] = info['title']
-                        info['plot'] = item_data.get('event', '').get('subtitle', '')
+                        info['plot'] = item_data.get('event', {}).get('subtitle', '')
                         asset_type = 'Film'
                     else:
                         info['mediatype'] = 'episode'
@@ -698,12 +706,15 @@ class Navigation:
                     info['mediatype'] = 'episode'
                     info['plot'] = data.get('synopsis', '').replace('\n', '').strip()
                     item_data['li_label'] = '[COLOR blue]{0}[/COLOR] {1}'.format(data.get('serie_title', ''), data.get('title', ''))
-            if self.channel_name_first == 'true':
-                item_data['li_label'] = '[COLOR orange]{0}[/COLOR] {1}'.format(item_data['channel']['name'], item_data.get('li_label') if item_data.get('li_label') else info['title'])
-            else:
-                item_data['li_label'] = '{0} [COLOR orange]{1}[/COLOR]'.format(item_data.get('li_label') if item_data.get('li_label') else info['title'], item_data['channel']['name'])
+            if item_data.get('channel'):
+                if self.channel_name_first == 'true':
+                    item_data['li_label'] = '[COLOR orange]{0}[/COLOR] {1}'.format(item_data['channel']['name'], item_data.get('li_label') if item_data.get('li_label') else info['title'])
+                else:
+                    item_data['li_label'] = '{0} [COLOR orange]{1}[/COLOR]'.format(item_data.get('li_label') if item_data.get('li_label') else info['title'], item_data['channel']['name'])
 
             info['plot'] = '{0} - {1}\n\n{2}'.format(item_data.get('event').get('startTime'), item_data.get('event').get('endTime'), info['plot'])
+            if item_data.get('event').get('lenght'):
+                info['duration'] = item_data.get('event').get('lenght')
         if asset_type == 'searchresult':
             if self.extMediaInfos == 'false':
                 info['plot'] = data.get('description', '')
@@ -760,8 +771,8 @@ class Navigation:
         rating = None
         poster_path = None
         tmdb_id = None
-        tmdb_api = base64.b64decode('YTAwYzUzOTU0M2JlMGIwODE4YmMxOTRhN2JkOTVlYTU=')  # ApiKey Linkinsoldier
-        title = re.sub(py2_encode('(\(.*\))'), py2_encode(''), title).strip()
+        tmdb_api = b64decode('YTAwYzUzOTU0M2JlMGIwODE4YmMxOTRhN2JkOTVlYTU=')  # ApiKey Linkinsoldier
+        title = sub(py2_encode('(\(.*\))'), py2_encode(''), title).strip()
 
         if attempt > 3:
             return {}
@@ -776,7 +787,7 @@ class Navigation:
 
         r = self.skygo.session.get(url)
         if self.common.get_dict_value(r.headers, 'content-type').startswith('application/json'):
-            data = json.loads(py2_decode(r.text))
+            data = loads(py2_decode(r.text))
 
             if data['total_results'] > 0:
                 if data['total_results'] > 1:
@@ -849,8 +860,8 @@ class Navigation:
                 old_poster = art.get('poster')
                 art.update({'poster': thumb, 'clearlogo': old_poster})
         if item['type'] == 'live':
-            poster = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else self.getChannelLogo(item['data']['channel']))
-            fanart = '{0}{1}'.format(self.skygo.baseUrl, item['data']['event']['image'] if item['data']['channel']['name'].find('News') == -1 else '{0}/bin/Picture/817/C_1_Picture_7179_content_4.jpg'.format(self.skygo.baseUrl))
+            poster = '{0}{1}'.format(self.skygo.baseUrl, item.get('data').get('event').get('image') if item.get('data').get('channel').get('name').find('News') == -1 else self.getChannelLogo(item.get('data').get('channel')))
+            fanart = '{0}{1}'.format(self.skygo.baseUrl, item.get('data').get('event').get('image') if item.get('data').get('channel').get('name').find('News') == -1 else '{0}/bin/Picture/817/C_1_Picture_7179_content_4.jpg'.format(self.skygo.baseUrl))
             thumb = poster
 
             if 'TMDb_poster_path' in item['data'] or ('mediainfo' in item['data'] and not item['data']['channel']['name'].startswith('Sky Sport')):
@@ -915,7 +926,7 @@ class Navigation:
             dirs, files = xbmcvfs.listdir(self.logopath)
             for f in files:
                 if f.lower().endswith('.png'):
-                    if channel_name.lower().replace(' ', '') == os.path.basename(f).lower().replace('.png', '').replace(' ', ''):
-                        return os.path.join(self.logopath, f)
+                    if channel_name.lower().replace(' ', '') == basename(f).lower().replace('.png', '').replace(' ', ''):
+                        return join(self.logopath, f)
 
         return None
