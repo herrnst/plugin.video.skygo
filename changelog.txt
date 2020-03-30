@@ -1,3 +1,8 @@
+1.13.20
+- Änderung der Python-ABI-Version
+1.13.19
+- Einstiegspunkt cachen
+- Auflistung nach Anfangsbuchstaben behoben
 1.13.18
 - Fehlerbehebung
 - Anzeige des Channellogos im OSD bei Livesport
