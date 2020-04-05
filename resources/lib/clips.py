@@ -5,8 +5,7 @@ from kodi_six.utils import py2_decode
 import json
 import time
 import base64
-# cryptopy
-from crypto.cipher import aes_cbc
+from Cryptodome.Cipher import AES
 
 try:
     from urllib.parse import urlencode
@@ -46,14 +45,8 @@ class Clips:
 
 
     def buildClipUrl(self, url, token):
-        # pyCrypto
-        # dec = AES.new(self.aes_key[0].decode('hex'), AES.MODE_CBC, self.aes_key[1].decode('hex'))
-        # path = dec.decrypt(base64.b64decode(token['tokenValue']))
-        # query = '{0}={1}'.format(token['tokenName'], path2[0:len(path2)-7])
-        #
-        # cryptopy
-        dec = aes_cbc.AES_CBC(key=self.aes_key[0].decode('hex'), keySize=16)
-        path = dec.decrypt(base64.b64decode(token['tokenValue']), iv=self.aes_key[1].decode('hex'))
+        dec = AES.new(self.aes_key[0].decode('hex'), AES.MODE_CBC, iv=self.aes_key[1].decode('hex'))
+        path = dec.decrypt(base64.b64decode(token['tokenValue']))
         query = '{0}={1}'.format(token['tokenName'], path)
         return '{0}?{1}'.format(url, query)
 
