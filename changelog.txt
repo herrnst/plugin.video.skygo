@@ -1,3 +1,6 @@
+1.90.13.20
+- Remove deps on script.module.pydes and script.module.cryptopy and rework affected code parts to use script.module.pycryptodome
+- Bump version to make the addon variant unique
 1.13.20
 - Änderung der Python-ABI-Version
 1.13.19
