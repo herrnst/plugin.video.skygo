@@ -1,3 +1,5 @@
+1.13.21
+- Assets-Tag in addon.xml hinzugefügt
 1.13.20
 - Änderung der Python-ABI-Version
 1.13.19
