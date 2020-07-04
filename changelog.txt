@@ -1,3 +1,6 @@
+1.95.14.0
+- Neues Property für Inputstream-Addons mit Kodi 19 hinzugefügt
+- Livesender hinzugefügt
 1.95.13.21
 - [upstream] Assets-Tag in addon.xml hinzugefügt
 1.95.13.20
