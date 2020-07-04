@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.skygo.de" name="Sky Go" version="1.90.13.21" provider-name="jojo, frankr612, Maven, Linkinsoldier, Daniel 'herrnst' Scheller">
+<addon id="plugin.video.skygo.de" name="Sky Go" version="1.90.14.0" provider-name="jojo, frankr612, Maven, Linkinsoldier, Daniel 'herrnst' Scheller">
     <requires>
-        <import addon="xbmc.python" version="2.25.0"/>
+        <import addon="xbmc.python" version="2.26.0"/>
         <import addon="script.module.requests" version="2.9.1"/>
         <import addon="script.module.routing" version="0.2.0"/>
         <import addon="script.common.plugin.cache" version="2.5.8"/>
@@ -31,6 +31,7 @@
             <icon>icon.png</icon>
         </assets>
         <news>
+1.90.14.0[CR]- Livesender hinzugefügt[CR][CR]
 1.90.13.20[CR]- Remove deps on script.module.pydes and script.module.cryptopy and rework affected code parts to use script.module.pycryptodome[CR]- Bump version to make the addon variant unique[CR][CR]
 1.13.20[CR]- Änderung der Python-ABI-Version[CR][CR]
 1.13.19[CR]- Einstiegspunkt cachen[CR]- Auflistung nach Anfangsbuchstaben behoben
